@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  openrouter-monitor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: openrouter-credit-monitor
+    restart: unless-stopped
+    environment:
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
+      - BALANCE_THRESHOLD=${BALANCE_THRESHOLD:-4}
+      - CHECK_INTERVAL_MINUTES=${CHECK_INTERVAL_MINUTES:-30}
+    env_file:
+      - .env
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
