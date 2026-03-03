@@ -37,6 +37,9 @@ RUN addgroup -g 1001 -S nodejs && \
 # Change ownership to non-root user
 RUN chown -R nodejs:nodejs /app
 
+# Create data directory for persistent state with correct ownership
+RUN mkdir -p /app/data && chown -R nodejs:nodejs /app/data
+
 # Switch to non-root user
 USER nodejs
 

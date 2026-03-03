@@ -2,11 +2,14 @@ import * as cron from 'node-cron';
 import { loadConfig } from './config';
 import { OpenRouterService } from './services/openrouter';
 import { TelegramService } from './services/telegram';
+import { PersistenceService, AppState } from './services/persistence';
 
 class CreditMonitor {
   private config = loadConfig();
   private openRouter: OpenRouterService;
   private telegram: TelegramService;
+  private persistence: PersistenceService;
+  private state: AppState;
   private lastAlertTime: number = 0;
   private alertCooldownMs = 3600000; // 1 hour cooldown between alerts
 
@@ -16,6 +19,62 @@ class CreditMonitor {
       this.config.telegramBotToken,
       this.config.telegramChatId
     );
+    this.persistence = new PersistenceService(this.config.statePath);
+    this.state = this.persistence.loadState();
+  }
+
+  private getCurrentMonth(): string {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    return `${year}-${month}`;
+  }
+
+  private async detectTopup(currentTotalCredits: number): Promise<void> {
+    const currentMonth = this.getCurrentMonth();
+
+    // Reset monthly counter when month changes
+    if (this.state.currentMonth !== currentMonth) {
+      this.state.monthlyTopupCount = 0;
+      this.state.currentMonth = currentMonth;
+    }
+
+    // First-run guard: just set baseline, do not alert
+    if (this.state.previousTotalCredits === 0) {
+      console.log('[First run: establishing baseline...]');
+      this.state.previousTotalCredits = currentTotalCredits;
+      this.persistence.saveState(this.state);
+      return;
+    }
+
+    const delta = currentTotalCredits - this.state.previousTotalCredits;
+
+    if (delta > 0.001) {
+      this.state.monthlyTopupCount += 1;
+      this.state.previousTotalCredits = currentTotalCredits;
+      const count = this.state.monthlyTopupCount;
+      const limit = this.config.monthlyTopupLimit;
+      const totalAdded = delta * count; // approximate; delta is the single topup amount
+
+      // Save state before sending Telegram (avoid double-count on restart)
+      this.persistence.saveState(this.state);
+
+      console.log(`💰 Auto topup detected! Amount: $${delta.toFixed(2)}, Count this month: ${count}/${limit}`);
+
+      await this.telegram.sendTopupAlert(delta, count, limit);
+
+      if (count > limit) {
+        const totalAddedThisMonth = delta * count;
+        await this.telegram.sendTopupOverBudgetAlert(count, totalAddedThisMonth, limit);
+      }
+    } else if (delta < -0.001) {
+      // Unexpected decrease – log warning, do not update baseline
+      console.warn(`⚠️  Unexpected totalCredits decrease (delta=${delta.toFixed(4)}). Skipping state update.`);
+    } else {
+      // No topup: update previousTotalCredits to current
+      this.state.previousTotalCredits = currentTotalCredits;
+      this.persistence.saveState(this.state);
+    }
   }
 
   async initialize(): Promise<void> {
@@ -23,6 +82,7 @@ class CreditMonitor {
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log(`💰 Balance Threshold: $${this.config.balanceThreshold}`);
     console.log(`⏰ Check Interval: ${this.config.checkIntervalMinutes} minutes`);
+    console.log(`📊 Monthly Topup Limit: ${this.config.monthlyTopupLimit}x`);
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
     // Test Telegram connection
@@ -41,6 +101,8 @@ class CreditMonitor {
 
       const balance = await this.openRouter.getCreditBalance();
       console.log(this.openRouter.formatBalance(balance));
+
+      await this.detectTopup(balance.totalCredits);
 
       if (balance.remainingBalance < this.config.balanceThreshold) {
         console.log(`\n⚠️  WARNING: Balance below threshold ($${this.config.balanceThreshold})!`);

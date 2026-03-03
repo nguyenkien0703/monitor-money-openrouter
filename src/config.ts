@@ -8,6 +8,8 @@ export interface Config {
   telegramChatId: string;
   balanceThreshold: number;
   checkIntervalMinutes: number;
+  monthlyTopupLimit: number;
+  statePath: string;
 }
 
 function getEnvVar(name: string): string {
@@ -37,5 +39,7 @@ export function loadConfig(): Config {
     telegramChatId: getEnvVar('TELEGRAM_CHAT_ID'),
     balanceThreshold: getEnvVarAsNumber('BALANCE_THRESHOLD', 4),
     checkIntervalMinutes: getEnvVarAsNumber('CHECK_INTERVAL_MINUTES', 30),
+    monthlyTopupLimit: getEnvVarAsNumber('MONTHLY_TOPUP_LIMIT', 2),
+    statePath: process.env['STATE_FILE_PATH'] || '/app/data/state.json',
   };
 }

@@ -43,6 +43,35 @@ Please top-up your account to avoid service interruption.
     await this.sendMessage(message);
   }
 
+  async sendTopupAlert(amount: number, count: number, limit: number): Promise<void> {
+    const totalAdded = amount * count;
+    const message = `💰 <b>Auto Topup Detected!</b>
+
+✅ OpenRouter tự động nạp <b>$${amount.toFixed(2)}</b> vào tài khoản.
+
+📊 Topup tháng này: <b>${count}/${limit}</b>
+💵 Tổng nạp tháng này: <b>$${totalAdded.toFixed(2)}</b>
+
+🕐 Time: ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+
+    await this.sendMessage(message);
+  }
+
+  async sendTopupOverBudgetAlert(count: number, totalAdded: number, limit: number): Promise<void> {
+    const message = `🚨 <b>URGENT: Monthly Topup Limit Exceeded!</b>
+
+⛔️ Auto topup đã xảy ra <b>${count} lần</b> trong tháng này.
+📉 Vượt giới hạn cho phép: <b>${limit} lần/tháng</b>.
+
+💸 Tổng đã nạp: <b>$${totalAdded.toFixed(2)}</b>
+
+⚡️ Cần kiểm tra và cân nhắc tắt auto-topup nếu không cần thiết.
+
+🕐 Time: ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+
+    await this.sendMessage(message);
+  }
+
   async testConnection(): Promise<boolean> {
     try {
       const response = await axios.get(`${this.baseUrl}/getMe`);
