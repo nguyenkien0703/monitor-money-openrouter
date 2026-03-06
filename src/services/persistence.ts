@@ -26,6 +26,7 @@ export interface AppState {
   dailyBudgetAlertDate: string;  // "YYYY-MM-DD" of last daily alert
   anomalyAlertDate: string;      // "YYYY-MM-DD" of last anomaly alert
   monthlyRecapSent: string;      // "YYYY-MM" of last monthly recap sent
+  perCheckSpikeAlertTime: string; // ISO string of last per-check spike alert
 }
 
 const DEFAULT_STATE: AppState = {
@@ -41,6 +42,7 @@ const DEFAULT_STATE: AppState = {
   dailyBudgetAlertDate: '',
   anomalyAlertDate: '',
   monthlyRecapSent: '',
+  perCheckSpikeAlertTime: '',
 };
 
 export class PersistenceService {

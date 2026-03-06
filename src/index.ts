@@ -141,12 +141,106 @@ class CreditMonitor {
     await this.telegram.sendMonthlyRecap(prevMonthStr, totalSpent, this.config.monthlyBudget, avgPerDay, topDay, totalRequests);
   }
 
+  async sendWeeklyRecap(): Promise<void> {
+    try {
+      const today = this.getCurrentDay();
+      const getDateStr = (daysBack: number) => {
+        const d = new Date(today + 'T00:00:00Z');
+        d.setUTCDate(d.getUTCDate() - daysBack);
+        return d.toISOString().slice(0, 10);
+      };
+
+      const sumWeek = (dates: string[]) => {
+        let cost = 0, requests = 0, hasAllRequests = true, days = 0;
+        for (const date of dates) {
+          const r = this.state.dailyHistory?.[date];
+          if (r) {
+            cost += r.cost ?? 0;
+            if (r.requestCount !== null) requests += r.requestCount;
+            else hasAllRequests = false;
+            days++;
+          }
+        }
+        return { cost, requests: hasAllRequests && days > 0 ? requests : null, days };
+      };
+
+      const thisWeek = sumWeek([1,2,3,4,5,6,7].map(getDateStr));
+      const lastWeek = sumWeek([8,9,10,11,12,13,14].map(getDateStr));
+
+      console.log(`📊 Sending weekly recap`);
+      await this.telegram.sendWeeklyRecap(thisWeek, lastWeek);
+    } catch (error) {
+      console.error('❌ Weekly recap error:', error instanceof Error ? error.message : error);
+    }
+  }
+
+  private async handleModelsCommand(): Promise<void> {
+    try {
+      const today = this.getCurrentDay();
+      const modelMap = new Map<string, { cost: number; requests: number }>();
+      for (let i = 1; i <= 7; i++) {
+        const d = new Date(today + 'T00:00:00Z');
+        d.setUTCDate(d.getUTCDate() - i);
+        const date = d.toISOString().slice(0, 10);
+        const record = this.state.dailyHistory?.[date];
+        if (record?.topModels) {
+          for (const m of record.topModels) {
+            const prev = modelMap.get(m.model) ?? { cost: 0, requests: 0 };
+            modelMap.set(m.model, { cost: prev.cost + m.cost, requests: prev.requests + m.requests });
+          }
+        }
+      }
+      const topModels = [...modelMap.entries()]
+        .map(([model, s]) => ({ model, ...s }))
+        .sort((a, b) => b.cost - a.cost)
+        .slice(0, 5);
+      await this.telegram.sendModelsReport(topModels);
+    } catch (error) {
+      console.error('❌ /models error:', error instanceof Error ? error.message : error);
+    }
+  }
+
+  private async handleHistoryCommand(): Promise<void> {
+    try {
+      const today = this.getCurrentDay();
+      const currentMonth = this.getCurrentMonth();
+      const balance = await this.openRouter.getCreditBalance();
+      const todayCost = (this.state.currentDay === today && this.state.dayStartUsage > 0)
+        ? balance.totalUsage - this.state.dayStartUsage : null;
+
+      const monthDates = Object.keys(this.state.dailyHistory ?? {})
+        .filter(d => d.startsWith(currentMonth) && d !== today)
+        .sort();
+
+      const days = [
+        ...monthDates.map(date => ({
+          date,
+          cost: this.state.dailyHistory[date].cost,
+          requestCount: this.state.dailyHistory[date].requestCount,
+          isToday: false,
+        })),
+        { date: today, cost: todayCost, requestCount: null, isToday: true },
+      ];
+
+      await this.telegram.sendHistoryReport(currentMonth, days);
+    } catch (error) {
+      console.error('❌ /history error:', error instanceof Error ? error.message : error);
+    }
+  }
+
   private startPolling(): void {
     let offset = 0;
+    const processedIds = new Set<number>();
     const poll = async () => {
       const updates = await this.telegram.getUpdates(offset);
       for (const update of updates) {
         offset = update.update_id + 1;
+        if (processedIds.has(update.update_id)) continue; // dedup
+        processedIds.add(update.update_id);
+        if (processedIds.size > 200) {
+          const oldest = [...processedIds].slice(0, 100);
+          oldest.forEach(id => processedIds.delete(id));
+        }
         const text = (update.message?.text ?? '').trim().toLowerCase();
         const chatId = String(update.message?.chat.id ?? '');
         if (chatId !== this.config.telegramChatId) continue; // ignore other chats
@@ -154,6 +248,8 @@ class CreditMonitor {
         if (text === '/status') await this.handleStatusCommand();
         else if (text === '/report') await this.sendDailyReport();
         else if (text === '/budget') await this.handleBudgetCommand();
+        else if (text === '/models') await this.handleModelsCommand();
+        else if (text === '/history') await this.handleHistoryCommand();
         else if (text === '/help') await this.telegram.sendHelpMessage();
       }
       setTimeout(poll, 1000);
@@ -203,6 +299,17 @@ class CreditMonitor {
     const now = Date.now();
     const today = this.getCurrentDay();
     const currentMonth = this.getCurrentMonth();
+
+    // 0. Per-check spike detection (absolute delta since last check)
+    if (this.state.lastCheckUsage > 0) {
+      const checkDelta = currentTotalUsage - this.state.lastCheckUsage;
+      const lastSpikeTime = new Date(this.state.perCheckSpikeAlertTime ?? '').getTime() || 0;
+      if (checkDelta > this.config.perCheckSpikeThreshold && Date.now() - lastSpikeTime > this.alertCooldownMs) {
+        this.state.perCheckSpikeAlertTime = new Date(now).toISOString();
+        console.log(`⚡️ Per-check spike: +$${checkDelta.toFixed(4)} since last check`);
+        await this.telegram.sendPerCheckSpikeAlert(checkDelta, this.config.checkIntervalMinutes, this.config.perCheckSpikeThreshold);
+      }
+    }
 
     // 1. Hourly spike detection
     if (this.state.lastCheckTime && this.state.lastCheckUsage > 0) {
@@ -449,6 +556,11 @@ class CreditMonitor {
     // Monthly recap on the 1st of each month at 00:05 UTC
     cron.schedule('5 0 1 * *', () => {
       this.sendMonthlyRecap();
+    }, { timezone: 'UTC' });
+
+    // Weekly recap every Monday at 08:00 UTC (= 15:00 UTC+7)
+    cron.schedule('0 8 * * 1', () => {
+      this.sendWeeklyRecap();
     }, { timezone: 'UTC' });
 
     // Start Telegram command polling

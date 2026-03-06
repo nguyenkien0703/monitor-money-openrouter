@@ -16,6 +16,7 @@ export interface Config {
   dailyBudgetLimit: number;     // DAILY_BUDGET_LIMIT, default monthlyBudget/30
   hourlySpikeThreshold: number; // HOURLY_SPIKE_THRESHOLD in $, default 0.5
   anomalyMultiplier: number;    // ANOMALY_MULTIPLIER, alert if today > avg*multiplier, default 2
+  perCheckSpikeThreshold: number; // PER_CHECK_SPIKE_THRESHOLD, alert if single check delta > this, default 1
 }
 
 function getEnvVar(name: string): string {
@@ -53,5 +54,6 @@ export function loadConfig(): Config {
     dailyBudgetLimit: getEnvVarAsNumber('DAILY_BUDGET_LIMIT', 50 / 30),
     hourlySpikeThreshold: getEnvVarAsNumber('HOURLY_SPIKE_THRESHOLD', 0.5),
     anomalyMultiplier: getEnvVarAsNumber('ANOMALY_MULTIPLIER', 2),
+    perCheckSpikeThreshold: getEnvVarAsNumber('PER_CHECK_SPIKE_THRESHOLD', 1),
   };
 }

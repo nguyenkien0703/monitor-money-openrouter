@@ -12,7 +12,7 @@ export class TelegramService {
     this.baseUrl = `https://api.telegram.org/bot${botToken}`;
   }
 
-  private readonly cmdFooter = '\n\n<i>/status · /budget · /report · /help</i>';
+  private readonly cmdFooter = '\n\n<i>/status · /budget · /report · /models · /history · /help</i>';
 
   async sendMessage(text: string): Promise<void> {
     try {
@@ -202,12 +202,97 @@ ${topDayStr}
     await this.sendMessage(message);
   }
 
+  async sendPerCheckSpikeAlert(delta: number, intervalMinutes: number, threshold: number): Promise<void> {
+    const message = `⚡️ <b>Chi phí tăng đột biến!</b>
+
+💸 Tăng <b>$${delta.toFixed(4)}</b> trong ${intervalMinutes} phút vừa qua
+⚠️ Ngưỡng cảnh báo: $${threshold.toFixed(2)}
+
+Có thể có request đắt tiền đang chạy!
+🕐 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+    await this.sendMessage(message);
+  }
+
+  async sendWeeklyRecap(
+    thisWeek: { cost: number; requests: number | null; days: number },
+    lastWeek: { cost: number; requests: number | null; days: number },
+  ): Promise<void> {
+    const diff = thisWeek.cost - lastWeek.cost;
+    const sign = diff >= 0 ? '+' : '-';
+    const diffStr = `${sign}$${Math.abs(diff).toFixed(2)}`;
+    const trend = diff > lastWeek.cost * 0.05 ? '📈' : diff < -lastWeek.cost * 0.05 ? '📉' : '➡️';
+    const reqStr = thisWeek.requests !== null ? `\n📨 Requests: <b>${thisWeek.requests.toLocaleString()}</b>` : '';
+    const lastReqStr = lastWeek.requests !== null ? ` (tuần trước: ${lastWeek.requests.toLocaleString()})` : '';
+    const message = `📊 <b>Weekly Recap</b>
+
+7 ngày qua (${thisWeek.days} ngày có data):
+💸 Tổng chi: <b>$${thisWeek.cost.toFixed(4)}</b>${reqStr}
+
+So với tuần trước: ${trend} <b>${diffStr}</b>
+Tuần trước: $${lastWeek.cost.toFixed(4)}${lastReqStr}
+
+🕐 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+    await this.sendMessage(message);
+  }
+
+  async sendModelsReport(models: Array<{ model: string; cost: number; requests: number }>): Promise<void> {
+    if (models.length === 0) {
+      await this.sendMessage('📭 Chưa có dữ liệu model trong 7 ngày qua.');
+      return;
+    }
+    const lines = models
+      .map((m, i) => {
+        const name = m.model.split('/')[1] ?? m.model;
+        return `${i + 1}. ${name}: <b>$${m.cost.toFixed(4)}</b> (${m.requests.toLocaleString()} req)`;
+      })
+      .join('\n');
+    const message = `🏆 <b>Top Models – 7 ngày qua</b>
+
+${lines}
+
+🕐 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+    await this.sendMessage(message);
+  }
+
+  async sendHistoryReport(
+    month: string,
+    days: Array<{ date: string; cost: number | null; requestCount: number | null; isToday?: boolean }>,
+  ): Promise<void> {
+    const [year, m] = month.split('-');
+    const pad = (s: string, len: number) => s.padStart(len);
+    const formatDate = (d: string) => d.split('-').slice(1).reverse().join('/'); // DD/MM
+
+    const header = `${'Ngày'.padEnd(6)} ${'Req'.padStart(6)} ${'Cost'.padStart(12)}`;
+    const sep = '─'.repeat(header.length);
+
+    const lines = days.map(({ date, cost, requestCount, isToday }) => {
+      const dateStr = formatDate(date) + (isToday ? '*' : ' ');
+      const req = requestCount !== null ? String(requestCount) : 'N/A';
+      const costStr = cost !== null ? `$${cost.toFixed(4)}` : 'N/A';
+      return `${dateStr.padEnd(6)} ${pad(req, 6)} ${pad(costStr, 12)}`;
+    });
+
+    const knownCosts = days.map(d => d.cost).filter((c): c is number => c !== null);
+    const total = knownCosts.reduce((s, c) => s + c, 0);
+    const totalLine = `${'Tot'.padEnd(6)} ${''.padStart(6)} ${pad('$' + total.toFixed(4), 12)}`;
+
+    const table = [header, sep, ...lines, sep, totalLine].join('\n');
+    const message = `📅 <b>Lịch sử tháng ${m}/${year}</b>
+
+<code>${table}</code>
+
+🕐 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+    await this.sendMessage(message);
+  }
+
   async sendHelpMessage(): Promise<void> {
     const message = `🤖 <b>OpenRouter Monitor – Lệnh có sẵn</b>
 
 /status – Balance + chi phí hôm nay + % budget
 /budget – Chi tiết ngân sách tháng + dự báo
 /report – Báo cáo 5 ngày gần nhất
+/models – Top models 7 ngày qua
+/history – Chi phí từng ngày trong tháng
 /help – Danh sách lệnh này`;
     await this.sendMessage(message);
   }

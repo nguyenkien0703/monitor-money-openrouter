@@ -20,6 +20,7 @@ services:
       - DAILY_BUDGET_LIMIT=${DAILY_BUDGET_LIMIT:-1.67}
       - HOURLY_SPIKE_THRESHOLD=${HOURLY_SPIKE_THRESHOLD:-0.5}
       - ANOMALY_MULTIPLIER=${ANOMALY_MULTIPLIER:-2}
+      - PER_CHECK_SPIKE_THRESHOLD=${PER_CHECK_SPIKE_THRESHOLD:-1}
       - STATE_FILE_PATH=/app/data/state.json
     volumes:
       - openrouter-monitor-data:/app/data

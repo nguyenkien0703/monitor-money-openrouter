@@ -148,7 +148,7 @@
         },
         {
           "model": "openai/gpt-oss-120b",
-          "cost": 0.080264,
+          "cost": 0.08026400000000002,
           "requests": 106
         },
         {
@@ -317,7 +317,7 @@
       ]
     },
     "2026-02-12": {
-      "cost": 0.295117,
+      "cost": 0.2951170000000001,
       "requestCount": 32,
       "topModels": [
         {
@@ -344,7 +344,7 @@
       ]
     },
     "2026-02-10": {
-      "cost": 2.1102320000000003,
+      "cost": 2.110232,
       "requestCount": 144,
       "topModels": [
         {
@@ -359,7 +359,7 @@
         },
         {
           "model": "openai/gpt-oss-120b",
-          "cost": 0.027776,
+          "cost": 0.027776000000000002,
           "requests": 33
         }
       ]
@@ -386,7 +386,7 @@
       ]
     },
     "2026-02-08": {
-      "cost": 0.029192999999999997,
+      "cost": 0.029193,
       "requestCount": 20,
       "topModels": [
         {
@@ -471,7 +471,7 @@
       ]
     },
     "2026-02-03": {
-      "cost": 1.461134,
+      "cost": 1.4611340000000002,
       "requestCount": 455,
       "topModels": [
         {
@@ -492,7 +492,8 @@
       ]
     }
   },
-  "lastCheckUsage": 305.736253853,
-  "lastCheckTime": "2026-03-06T09:04:56.434Z",
-  "monthlyBudgetAlerts": []
+  "lastCheckUsage": 305.850702203,
+  "lastCheckTime": "2026-03-06T09:23:42.813Z",
+  "monthlyBudgetAlerts": [],
+  "anomalyAlertDate": "2026-03-06"
 }
