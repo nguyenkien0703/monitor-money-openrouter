@@ -2,7 +2,7 @@ import * as cron from 'node-cron';
 import { loadConfig } from './config';
 import { OpenRouterService } from './services/openrouter';
 import { TelegramService } from './services/telegram';
-import { PersistenceService, AppState } from './services/persistence';
+import { PersistenceService, AppState, DayRecord } from './services/persistence';
 
 class CreditMonitor {
   private config = loadConfig();
@@ -28,6 +28,77 @@ class CreditMonitor {
     const year = now.getUTCFullYear();
     const month = String(now.getUTCMonth() + 1).padStart(2, '0');
     return `${year}-${month}`;
+  }
+
+  private getCurrentDay(): string {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(now.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  private async handleDailyTracking(currentTotalUsage: number): Promise<void> {
+    const today = this.getCurrentDay();
+
+    // First run: set baseline
+    if (!this.state.currentDay) {
+      this.state.currentDay = today;
+      this.state.dayStartUsage = currentTotalUsage;
+      if (!this.state.dailyHistory) this.state.dailyHistory = {};
+      this.persistence.saveState(this.state);
+      return;
+    }
+
+    // Day has changed: save completed day to history then reset
+    if (this.state.currentDay !== today) {
+      const yesterdayDate = this.state.currentDay;
+      const yesterdayCost = currentTotalUsage - this.state.dayStartUsage;
+      const fromISO = `${yesterdayDate}T00:00:00Z`;
+      const toISO = `${yesterdayDate}T23:59:59Z`;
+      const requestCount = await this.openRouter.getDailyRequestCount(fromISO, toISO);
+
+      if (!this.state.dailyHistory) this.state.dailyHistory = {};
+      this.state.dailyHistory[yesterdayDate] = { cost: yesterdayCost, requestCount };
+
+      // Keep only last 30 days
+      const sortedDates = Object.keys(this.state.dailyHistory).sort();
+      if (sortedDates.length > 30) {
+        delete this.state.dailyHistory[sortedDates[0]];
+      }
+
+      console.log(`📅 Day completed: ${yesterdayDate}, cost=$${yesterdayCost.toFixed(6)}, requests=${requestCount ?? 'N/A'}`);
+
+      // Reset for new day
+      this.state.currentDay = today;
+      this.state.dayStartUsage = currentTotalUsage;
+      this.persistence.saveState(this.state);
+    }
+  }
+
+  async sendDailyReport(): Promise<void> {
+    try {
+      const today = this.getCurrentDay();
+      const balance = await this.openRouter.getCreditBalance();
+      const todayCost = balance.totalUsage - this.state.dayStartUsage;
+      const fromISO = `${today}T00:00:00Z`;
+      const toISO = new Date().toISOString();
+      const todayRequestCount = await this.openRouter.getDailyRequestCount(fromISO, toISO);
+
+      if (!this.state.dailyHistory) this.state.dailyHistory = {};
+
+      // Build last 5 days: today (partial) + last 4 completed days
+      const completedDates = Object.keys(this.state.dailyHistory).sort().reverse().slice(0, 4);
+      const rows: Array<{ date: string; record: DayRecord; isToday: boolean }> = [
+        { date: today, record: { cost: todayCost, requestCount: todayRequestCount }, isToday: true },
+        ...completedDates.map(d => ({ date: d, record: this.state.dailyHistory[d], isToday: false })),
+      ];
+
+      await this.telegram.sendDailyReport(rows);
+      console.log(`📊 Daily report sent (${rows.length} days)`);
+    } catch (error) {
+      console.error('❌ Error sending daily report:', error instanceof Error ? error.message : error);
+    }
   }
 
   private async detectTopup(currentTotalCredits: number): Promise<void> {
@@ -103,6 +174,7 @@ class CreditMonitor {
       console.log(this.openRouter.formatBalance(balance));
 
       await this.detectTopup(balance.totalCredits);
+      await this.handleDailyTracking(balance.totalUsage);
 
       if (balance.remainingBalance < this.config.balanceThreshold) {
         console.log(`\n⚠️  WARNING: Balance below threshold ($${this.config.balanceThreshold})!`);
@@ -140,7 +212,14 @@ class CreditMonitor {
       this.checkBalance();
     });
 
+    // Schedule daily report at configured UTC hour
+    const hour = this.config.dailyReportHourUTC;
+    cron.schedule(`0 ${hour} * * *`, () => {
+      this.sendDailyReport();
+    }, { timezone: 'UTC' });
+
     console.log(`⏰ Scheduled to run every ${this.config.checkIntervalMinutes} minutes`);
+    console.log(`📊 Daily report scheduled at ${hour}:00 UTC`);
     console.log('🔄 Monitor is now running... (Press Ctrl+C to stop)\n');
   }
 }

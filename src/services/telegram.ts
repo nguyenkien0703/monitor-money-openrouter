@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { DayRecord } from './persistence';
 
 export class TelegramService {
   private botToken: string;
@@ -68,6 +69,42 @@ Please top-up your account to avoid service interruption.
 ⚡️ Cần kiểm tra và cân nhắc tắt auto-topup nếu không cần thiết.
 
 🕐 Time: ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+
+    await this.sendMessage(message);
+  }
+
+  async sendDailyReport(rows: Array<{ date: string; record: DayRecord; isToday: boolean }>): Promise<void> {
+    const formatDate = (d: string) => {
+      const [y, m, day] = d.split('-');
+      return `${day}/${m}/${y.slice(2)}`;
+    };
+    const pad = (s: string, len: number) => s.padStart(len);
+
+    const header = `${'Ngày'.padEnd(10)} ${'Requests'.padStart(9)} ${'Cost'.padStart(12)}`;
+    const sep = '─'.repeat(header.length);
+
+    const dataLines = rows.map(({ date, record, isToday }) => {
+      const dateStr = formatDate(date) + (isToday ? '*' : ' ');
+      const req = record.requestCount !== null ? String(record.requestCount) : 'N/A';
+      const cost = `$${record.cost.toFixed(4)}`;
+      return `${dateStr.padEnd(10)} ${pad(req, 9)} ${pad(cost, 12)}`;
+    });
+
+    const totalCost = rows.reduce((sum, r) => sum + r.record.cost, 0);
+    const totalReq = rows.every(r => r.record.requestCount !== null)
+      ? rows.reduce((sum, r) => sum + (r.record.requestCount ?? 0), 0)
+      : null;
+    const totalReqStr = totalReq !== null ? String(totalReq) : 'N/A';
+    const totalLine = `${'Total'.padEnd(10)} ${pad(totalReqStr, 9)} ${pad('$' + totalCost.toFixed(4), 12)}`;
+
+    const table = [header, sep, ...dataLines, sep, totalLine].join('\n');
+
+    const message = `📊 <b>Chi phí 5 ngày gần nhất</b>
+
+<code>${table}</code>
+
+<i>* Hôm nay (đang cập nhật)</i>
+🕐 UTC`;
 
     await this.sendMessage(message);
   }

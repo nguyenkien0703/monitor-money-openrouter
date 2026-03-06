@@ -10,6 +10,7 @@ export interface Config {
   checkIntervalMinutes: number;
   monthlyTopupLimit: number;
   statePath: string;
+  dailyReportHourUTC: number; // 0-23, hour UTC to send daily report
 }
 
 function getEnvVar(name: string): string {
@@ -41,5 +42,6 @@ export function loadConfig(): Config {
     checkIntervalMinutes: getEnvVarAsNumber('CHECK_INTERVAL_MINUTES', 30),
     monthlyTopupLimit: getEnvVarAsNumber('MONTHLY_TOPUP_LIMIT', 2),
     statePath: process.env['STATE_FILE_PATH'] || '/app/data/state.json',
+    dailyReportHourUTC: getEnvVarAsNumber('DAILY_REPORT_HOUR_UTC', 22),
   };
 }
