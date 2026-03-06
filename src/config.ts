@@ -4,14 +4,17 @@ dotenv.config();
 
 export interface Config {
   openRouterApiKey: string;
-  openRouterManagementKey: string; // optional, for fetching activity history
+  openRouterManagementKey: string;
   telegramBotToken: string;
   telegramChatId: string;
   balanceThreshold: number;
   checkIntervalMinutes: number;
   monthlyTopupLimit: number;
   statePath: string;
-  dailyReportHourUTC: number; // 0-23, hour UTC to send daily report
+  dailyReportHourUTC: number;
+  monthlyBudget: number;        // MONTHLY_BUDGET, e.g. 50
+  dailyBudgetLimit: number;     // DAILY_BUDGET_LIMIT, default monthlyBudget/30
+  hourlySpikeThreshold: number; // HOURLY_SPIKE_THRESHOLD in $, default 0.5
 }
 
 function getEnvVar(name: string): string {
@@ -45,5 +48,8 @@ export function loadConfig(): Config {
     openRouterManagementKey: process.env['OPENROUTER_MANAGEMENT_KEY'] || '',
     statePath: process.env['STATE_FILE_PATH'] || './data/state.json',
     dailyReportHourUTC: getEnvVarAsNumber('DAILY_REPORT_HOUR_UTC', 22),
+    monthlyBudget: getEnvVarAsNumber('MONTHLY_BUDGET', 50),
+    dailyBudgetLimit: getEnvVarAsNumber('DAILY_BUDGET_LIMIT', 50 / 30),
+    hourlySpikeThreshold: getEnvVarAsNumber('HOURLY_SPIKE_THRESHOLD', 0.5),
   };
 }

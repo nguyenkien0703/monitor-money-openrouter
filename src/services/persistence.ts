@@ -1,18 +1,29 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+export interface ModelStat {
+  model: string;
+  cost: number;
+  requests: number;
+}
+
 export interface DayRecord {
   cost: number | null;
   requestCount: number | null;
+  topModels?: ModelStat[];
 }
 
 export interface AppState {
   previousTotalCredits: number;
   monthlyTopupCount: number;
-  currentMonth: string; // format: "YYYY-MM" (UTC)
-  currentDay: string;      // format: "YYYY-MM-DD" (UTC)
-  dayStartUsage: number;   // total_usage at start of current day
-  dailyHistory: { [date: string]: DayRecord }; // completed days, max 30 entries
+  currentMonth: string;
+  currentDay: string;
+  dayStartUsage: number;
+  dailyHistory: { [date: string]: DayRecord };
+  lastCheckUsage: number;
+  lastCheckTime: string;         // ISO string
+  monthlyBudgetAlerts: string[]; // e.g. ["2026-03_80", "2026-03_90"]
+  dailyBudgetAlertDate: string;  // "YYYY-MM-DD" of last daily alert
 }
 
 const DEFAULT_STATE: AppState = {
@@ -22,6 +33,10 @@ const DEFAULT_STATE: AppState = {
   currentDay: '',
   dayStartUsage: 0,
   dailyHistory: {},
+  lastCheckUsage: 0,
+  lastCheckTime: '',
+  monthlyBudgetAlerts: [],
+  dailyBudgetAlertDate: '',
 };
 
 export class PersistenceService {

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { ModelStat } from './persistence';
 
 export interface CreditBalance {
   totalCredits: number;
@@ -51,43 +52,39 @@ export class OpenRouterService {
     managementKey: string,
     fromISO: string,
     toISO: string,
-  ): Promise<Map<string, { cost: number; requestCount: number }> | null> {
+  ): Promise<Map<string, { cost: number; requestCount: number; topModels: ModelStat[] }> | null> {
+    const parseItems = (items: any[]) => {
+      const map = new Map<string, { cost: number; requestCount: number; models: Map<string, ModelStat> }>();
+      for (const item of items) {
+        const date = String(item.date ?? item.created_at ?? '').slice(0, 10);
+        if (!date) continue;
+        const cost = item.usage ?? 0;
+        const requests = item.requests ?? 1;
+        const model = item.model_permaslug ?? item.model ?? 'unknown';
+        if (!map.has(date)) map.set(date, { cost: 0, requestCount: 0, models: new Map() });
+        const day = map.get(date)!;
+        day.cost += cost;
+        day.requestCount += requests;
+        const prev = day.models.get(model) ?? { model, cost: 0, requests: 0 };
+        day.models.set(model, { model, cost: prev.cost + cost, requests: prev.requests + requests });
+      }
+      if (map.size === 0) return null;
+      const result = new Map<string, { cost: number; requestCount: number; topModels: ModelStat[] }>();
+      for (const [date, day] of map.entries()) {
+        const topModels = [...day.models.values()].sort((a, b) => b.cost - a.cost).slice(0, 3);
+        result.set(date, { cost: day.cost, requestCount: day.requestCount, topModels });
+      }
+      return result;
+    };
+
     const endpoints = [
-      // Internal analytics API (data already aggregated by hour+model)
       {
         url: 'https://openrouter.ai/api/internal/v1/transaction-analytics',
-        parse: (data: any) => {
-          const items: any[] = data?.data?.data ?? data?.data ?? [];
-          const map = new Map<string, { cost: number; requestCount: number }>();
-          for (const item of items) {
-            const date = String(item.date).slice(0, 10); // "2026-03-06"
-            const prev = map.get(date) ?? { cost: 0, requestCount: 0 };
-            map.set(date, {
-              cost: prev.cost + (item.usage ?? 0),
-              requestCount: prev.requestCount + (item.requests ?? 0),
-            });
-          }
-          return map.size > 0 ? map : null;
-        },
+        getItems: (data: any) => data?.data?.data ?? data?.data ?? [],
       },
-      // Fallback: public activity API (per-generation list)
       {
         url: `${this.baseUrl}/activity`,
-        parse: (data: any) => {
-          const items: any[] = data?.data ?? data ?? [];
-          if (!Array.isArray(items) || items.length === 0) return null;
-          const map = new Map<string, { cost: number; requestCount: number }>();
-          for (const item of items) {
-            const date = String(item.date ?? item.created_at ?? '').slice(0, 10);
-            if (!date) continue;
-            const prev = map.get(date) ?? { cost: 0, requestCount: 0 };
-            map.set(date, {
-              cost: prev.cost + (item.usage ?? 0),
-              requestCount: prev.requestCount + (item.requests ?? 1),
-            });
-          }
-          return map.size > 0 ? map : null;
-        },
+        getItems: (data: any) => data?.data ?? data ?? [],
       },
     ];
 
@@ -97,8 +94,11 @@ export class OpenRouterService {
           headers: { 'Authorization': `Bearer ${managementKey}` },
           params: { from: fromISO, to: toISO },
         });
-        const result = ep.parse(res.data);
-        if (result) return result;
+        const items = ep.getItems(res.data);
+        if (Array.isArray(items) && items.length > 0) {
+          const result = parseItems(items);
+          if (result) return result;
+        }
       } catch (err: any) {
         console.log(`⚠️  ${ep.url}: ${err?.response?.status} ${JSON.stringify(err?.response?.data?.error?.message ?? '').slice(0, 100)}`);
       }

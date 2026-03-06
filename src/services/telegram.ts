@@ -73,7 +73,45 @@ Please top-up your account to avoid service interruption.
     await this.sendMessage(message);
   }
 
-  async sendDailyReport(rows: Array<{ date: string; record: DayRecord; isToday: boolean }>): Promise<void> {
+  async sendHourlySpikeAlert(hourlyRate: number, threshold: number): Promise<void> {
+    const message = `🚨 <b>Chi phí tăng đột biến!</b>
+
+⚡️ Burn rate hiện tại: <b>$${hourlyRate.toFixed(3)}/giờ</b>
+⚠️ Ngưỡng cảnh báo: $${threshold.toFixed(2)}/giờ
+
+Kiểm tra ngay các process đang chạy!
+🕐 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+    await this.sendMessage(message);
+  }
+
+  async sendDailyBudgetAlert(todayCost: number, dailyLimit: number): Promise<void> {
+    const overPercent = ((todayCost - dailyLimit) / dailyLimit * 100).toFixed(0);
+    const message = `⚠️ <b>Vượt ngân sách ngày!</b>
+
+💸 Chi phí hôm nay: <b>$${todayCost.toFixed(4)}</b>
+📊 Giới hạn/ngày: $${dailyLimit.toFixed(4)}
+📈 Vượt: <b>+${overPercent}%</b>
+
+🕐 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+    await this.sendMessage(message);
+  }
+
+  async sendMonthlyBudgetAlert(threshold: number, spent: number, budget: number, projected: number, daysLeft: number): Promise<void> {
+    const emoji = threshold >= 100 ? '🚨' : threshold >= 90 ? '🔴' : '🟡';
+    const message = `${emoji} <b>Ngân sách tháng ${threshold}%!</b>
+
+💸 Đã dùng: <b>$${spent.toFixed(2)} / $${budget.toFixed(2)}</b>
+📈 Dự báo cuối tháng: <b>$${projected.toFixed(2)}</b>
+⏳ Còn lại ~${Math.max(0, Math.floor(daysLeft))} ngày trước khi hết budget
+
+🕐 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+    await this.sendMessage(message);
+  }
+
+  async sendDailyReport(
+    rows: Array<{ date: string; record: DayRecord; isToday: boolean }>,
+    monthly: { spent: number; budget: number; projected: number; burnRatePerDay: number; daysLeft: number } | null,
+  ): Promise<void> {
     const formatDate = (d: string) => {
       const [y, m, day] = d.split('-');
       return `${day}/${m}/${y.slice(2)}`;
@@ -97,11 +135,40 @@ Please top-up your account to avoid service interruption.
 
     const table = [header, sep, ...dataLines, sep, totalLine].join('\n');
 
+    // Monthly budget section
+    let monthlySection = '';
+    if (monthly) {
+      const pct = (monthly.spent / monthly.budget * 100).toFixed(1);
+      const bar = Math.round(Number(pct) / 10);
+      const progressBar = '█'.repeat(bar) + '░'.repeat(10 - bar);
+      monthlySection = `
+
+💰 <b>Ngân sách tháng này</b>
+<code>${progressBar} ${pct}%</code>
+Đã dùng: <b>$${monthly.spent.toFixed(2)}</b> / $${monthly.budget.toFixed(2)}
+Burn rate: $${monthly.burnRatePerDay.toFixed(2)}/ngày
+Dự báo cuối tháng: <b>$${monthly.projected.toFixed(2)}</b>
+Còn ~${Math.max(0, Math.floor(monthly.daysLeft))} ngày trước khi hết budget`;
+    }
+
+    // Top models of most recent completed day
+    const recentCompleted = rows.find(r => !r.isToday && r.record.topModels && r.record.topModels.length > 0);
+    let modelSection = '';
+    if (recentCompleted?.record.topModels) {
+      const modelLines = recentCompleted.record.topModels
+        .map((m, i) => `${i + 1}. ${m.model.split('/')[1] ?? m.model}: <b>$${m.cost.toFixed(4)}</b> (${m.requests} req)`)
+        .join('\n');
+      modelSection = `
+
+🏆 <b>Top models ${formatDate(recentCompleted.date)}</b>
+${modelLines}`;
+    }
+
     const message = `📊 <b>Chi phí 5 ngày gần nhất</b>
 
 <code>${table}</code>
 
-<i>* Hôm nay (đang cập nhật)</i>
+<i>* Hôm nay (đang cập nhật)</i>${monthlySection}${modelSection}
 🕐 UTC`;
 
     await this.sendMessage(message);

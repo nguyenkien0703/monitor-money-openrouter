@@ -72,6 +72,65 @@ class CreditMonitor {
     }
   }
 
+  private getMonthlySpend(currentTotalUsage: number, today: string, currentMonth: string): number {
+    const historySum = Object.entries(this.state.dailyHistory ?? {})
+      .filter(([date]) => date.startsWith(currentMonth) && date !== today)
+      .reduce((sum, [, r]) => sum + (r.cost ?? 0), 0);
+    const todayCost = (this.state.currentDay === today && this.state.dayStartUsage > 0)
+      ? currentTotalUsage - this.state.dayStartUsage : 0;
+    return historySum + todayCost;
+  }
+
+  private async checkBudgets(currentTotalUsage: number): Promise<void> {
+    const now = Date.now();
+    const today = this.getCurrentDay();
+    const currentMonth = this.getCurrentMonth();
+
+    // 1. Hourly spike detection
+    if (this.state.lastCheckTime && this.state.lastCheckUsage > 0) {
+      const timeDeltaHours = (now - new Date(this.state.lastCheckTime).getTime()) / 3600000;
+      if (timeDeltaHours > 0) {
+        const hourlyRate = (currentTotalUsage - this.state.lastCheckUsage) / timeDeltaHours;
+        if (hourlyRate > this.config.hourlySpikeThreshold) {
+          console.log(`🚨 Hourly spike: $${hourlyRate.toFixed(3)}/hr (threshold: $${this.config.hourlySpikeThreshold}/hr)`);
+          await this.telegram.sendHourlySpikeAlert(hourlyRate, this.config.hourlySpikeThreshold);
+        }
+      }
+    }
+    this.state.lastCheckUsage = currentTotalUsage;
+    this.state.lastCheckTime = new Date(now).toISOString();
+
+    // 2. Daily budget alert
+    const todayCost = (this.state.currentDay === today && this.state.dayStartUsage > 0)
+      ? currentTotalUsage - this.state.dayStartUsage : 0;
+    if (todayCost > this.config.dailyBudgetLimit && this.state.dailyBudgetAlertDate !== today) {
+      this.state.dailyBudgetAlertDate = today;
+      console.log(`⚠️  Daily budget exceeded: $${todayCost.toFixed(4)} > $${this.config.dailyBudgetLimit.toFixed(4)}`);
+      await this.telegram.sendDailyBudgetAlert(todayCost, this.config.dailyBudgetLimit);
+    }
+
+    // 3. Monthly budget milestone alerts
+    const monthlySpend = this.getMonthlySpend(currentTotalUsage, today, currentMonth);
+    const dayOfMonth = new Date().getUTCDate();
+    const daysInMonth = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 0)).getUTCDate();
+    const burnRatePerDay = dayOfMonth > 0 ? monthlySpend / dayOfMonth : 0;
+    const projected = burnRatePerDay * daysInMonth;
+    const daysLeft = burnRatePerDay > 0 ? (this.config.monthlyBudget - monthlySpend) / burnRatePerDay : daysInMonth - dayOfMonth;
+    const percentage = (monthlySpend / this.config.monthlyBudget) * 100;
+
+    if (!this.state.monthlyBudgetAlerts) this.state.monthlyBudgetAlerts = [];
+    for (const threshold of [80, 90, 100]) {
+      const key = `${currentMonth}_${threshold}`;
+      if (percentage >= threshold && !this.state.monthlyBudgetAlerts.includes(key)) {
+        this.state.monthlyBudgetAlerts.push(key);
+        console.log(`🔴 Monthly budget ${threshold}%: $${monthlySpend.toFixed(2)} / $${this.config.monthlyBudget}`);
+        await this.telegram.sendMonthlyBudgetAlert(threshold, monthlySpend, this.config.monthlyBudget, projected, daysLeft);
+      }
+    }
+
+    this.persistence.saveState(this.state);
+  }
+
   async sendDailyReport(): Promise<void> {
     try {
       const today = this.getCurrentDay();
@@ -115,7 +174,21 @@ class CreditMonitor {
         })),
       ];
 
-      await this.telegram.sendDailyReport(rows);
+      // Build monthly stats for report
+      const currentMonth = this.getCurrentMonth();
+      const monthlySpend = this.getMonthlySpend(balance.totalUsage, today, currentMonth);
+      const dayOfMonth = new Date().getUTCDate();
+      const daysInMonth = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 0)).getUTCDate();
+      const burnRatePerDay = dayOfMonth > 0 ? monthlySpend / dayOfMonth : 0;
+      const monthly = {
+        spent: monthlySpend,
+        budget: this.config.monthlyBudget,
+        projected: burnRatePerDay * daysInMonth,
+        burnRatePerDay,
+        daysLeft: burnRatePerDay > 0 ? (this.config.monthlyBudget - monthlySpend) / burnRatePerDay : daysInMonth - dayOfMonth,
+      };
+
+      await this.telegram.sendDailyReport(rows, monthly);
       console.log(`📊 Daily report sent (${rows.length} days)`);
     } catch (error) {
       console.error('❌ Error sending daily report:', error instanceof Error ? error.message : error);
@@ -196,6 +269,7 @@ class CreditMonitor {
 
       await this.detectTopup(balance.totalCredits);
       await this.handleDailyTracking(balance.totalUsage);
+      await this.checkBudgets(balance.totalUsage);
 
       if (balance.remainingBalance < this.config.balanceThreshold) {
         console.log(`\n⚠️  WARNING: Balance below threshold ($${this.config.balanceThreshold})!`);
