@@ -7,127 +7,492 @@
   "dailyHistory": {
     "2026-03-05": {
       "cost": 4.090937000000001,
-      "requestCount": 898
+      "requestCount": 898,
+      "topModels": [
+        {
+          "model": "google/gemini-2.5-pro",
+          "cost": 2.4314609999999997,
+          "requests": 251
+        },
+        {
+          "model": "anthropic/claude-4.5-haiku-20251001",
+          "cost": 0.6738200000000001,
+          "requests": 83
+        },
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.544431,
+          "requests": 143
+        }
+      ]
     },
     "2026-03-04": {
       "cost": 0.38770400000000005,
-      "requestCount": 106
+      "requestCount": 106,
+      "topModels": [
+        {
+          "model": "google/gemini-2.5-pro",
+          "cost": 0.32861399999999996,
+          "requests": 31
+        },
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.020861,
+          "requests": 6
+        },
+        {
+          "model": "x-ai/grok-4-fast",
+          "cost": 0.015088,
+          "requests": 18
+        }
+      ]
     },
     "2026-03-03": {
       "cost": 2.036476,
-      "requestCount": 362
+      "requestCount": 362,
+      "topModels": [
+        {
+          "model": "google/gemini-2.5-pro",
+          "cost": 1.201035,
+          "requests": 101
+        },
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.675956,
+          "requests": 65
+        },
+        {
+          "model": "x-ai/grok-4.1-fast",
+          "cost": 0.052093,
+          "requests": 43
+        }
+      ]
     },
     "2026-03-02": {
       "cost": 1.602658,
-      "requestCount": 378
+      "requestCount": 378,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 1.006945,
+          "requests": 117
+        },
+        {
+          "model": "google/gemini-2.5-pro",
+          "cost": 0.260733,
+          "requests": 25
+        },
+        {
+          "model": "qwen/qwen3.5-35b-a3b-20260224",
+          "cost": 0.140577,
+          "requests": 54
+        }
+      ]
     },
     "2026-03-01": {
       "cost": 1.2866300000000002,
-      "requestCount": 52
+      "requestCount": 52,
+      "topModels": [
+        {
+          "model": "anthropic/claude-4.5-sonnet-20250929",
+          "cost": 0.85094,
+          "requests": 14
+        },
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.43569,
+          "requests": 38
+        }
+      ]
     },
     "2026-02-28": {
       "cost": 0.223833,
-      "requestCount": 23
+      "requestCount": 23,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.223833,
+          "requests": 23
+        }
+      ]
     },
     "2026-02-27": {
       "cost": 1.8272669999999998,
-      "requestCount": 246
+      "requestCount": 246,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 1.198676,
+          "requests": 113
+        },
+        {
+          "model": "google/gemini-2.5-pro",
+          "cost": 0.330808,
+          "requests": 46
+        },
+        {
+          "model": "google/gemini-3.1-pro-preview-20260219",
+          "cost": 0.084684,
+          "requests": 6
+        }
+      ]
     },
     "2026-02-26": {
       "cost": 0.6686989999999999,
-      "requestCount": 177
+      "requestCount": 177,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.474985,
+          "requests": 40
+        },
+        {
+          "model": "openai/gpt-oss-120b",
+          "cost": 0.080264,
+          "requests": 106
+        },
+        {
+          "model": "openai/gpt-5.2-20251211",
+          "cost": 0.071061,
+          "requests": 6
+        }
+      ]
     },
     "2026-02-25": {
       "cost": 0.37386,
-      "requestCount": 37
+      "requestCount": 37,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.3698,
+          "requests": 33
+        },
+        {
+          "model": "openai/gpt-oss-120b",
+          "cost": 0.00406,
+          "requests": 4
+        }
+      ]
     },
     "2026-02-24": {
       "cost": 1.2983330000000002,
-      "requestCount": 83
+      "requestCount": 83,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 1.295139,
+          "requests": 78
+        },
+        {
+          "model": "openai/gpt-oss-120b",
+          "cost": 0.0031940000000000002,
+          "requests": 5
+        }
+      ]
     },
     "2026-02-23": {
       "cost": 0.055524,
-      "requestCount": 9
+      "requestCount": 9,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.055524,
+          "requests": 9
+        }
+      ]
     },
     "2026-02-22": {
       "cost": 0.038268,
-      "requestCount": 8
+      "requestCount": 8,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.038268,
+          "requests": 8
+        }
+      ]
     },
     "2026-02-21": {
       "cost": 0.528495,
-      "requestCount": 10
+      "requestCount": 10,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.528495,
+          "requests": 10
+        }
+      ]
     },
     "2026-02-20": {
       "cost": 0.088196,
-      "requestCount": 8
+      "requestCount": 8,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.088196,
+          "requests": 8
+        }
+      ]
     },
     "2026-02-19": {
       "cost": 0.039482,
-      "requestCount": 4
+      "requestCount": 4,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.039482,
+          "requests": 4
+        }
+      ]
     },
     "2026-02-18": {
       "cost": 0.12491,
-      "requestCount": 10
+      "requestCount": 10,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.12491,
+          "requests": 10
+        }
+      ]
     },
     "2026-02-17": {
       "cost": 0.018914,
-      "requestCount": 4
+      "requestCount": 4,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.018914,
+          "requests": 4
+        }
+      ]
     },
     "2026-02-16": {
       "cost": 0.031295,
-      "requestCount": 6
+      "requestCount": 6,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.031295,
+          "requests": 6
+        }
+      ]
     },
     "2026-02-15": {
       "cost": 0.039433,
-      "requestCount": 6
+      "requestCount": 6,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.039433,
+          "requests": 6
+        }
+      ]
     },
     "2026-02-14": {
       "cost": 0.015394,
-      "requestCount": 3
+      "requestCount": 3,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.015394,
+          "requests": 3
+        }
+      ]
     },
     "2026-02-13": {
       "cost": 0.068372,
-      "requestCount": 17
+      "requestCount": 17,
+      "topModels": [
+        {
+          "model": "moonshotai/kimi-k2.5-0127",
+          "cost": 0.054388,
+          "requests": 14
+        },
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.013984,
+          "requests": 3
+        }
+      ]
     },
     "2026-02-12": {
       "cost": 0.295117,
-      "requestCount": 32
+      "requestCount": 32,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.251717,
+          "requests": 27
+        },
+        {
+          "model": "moonshotai/kimi-k2.5-0127",
+          "cost": 0.0434,
+          "requests": 5
+        }
+      ]
     },
     "2026-02-11": {
       "cost": 0.204994,
-      "requestCount": 22
+      "requestCount": 22,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.204994,
+          "requests": 22
+        }
+      ]
     },
     "2026-02-10": {
       "cost": 2.1102320000000003,
-      "requestCount": 144
+      "requestCount": 144,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 2.030676,
+          "requests": 81
+        },
+        {
+          "model": "openai/gpt-5-mini-2025-08-07",
+          "cost": 0.046024,
+          "requests": 22
+        },
+        {
+          "model": "openai/gpt-oss-120b",
+          "cost": 0.027776,
+          "requests": 33
+        }
+      ]
     },
     "2026-02-09": {
       "cost": 0.859555,
-      "requestCount": 131
+      "requestCount": 131,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.519735,
+          "requests": 42
+        },
+        {
+          "model": "openai/gpt-5-mini-2025-08-07",
+          "cost": 0.189044,
+          "requests": 78
+        },
+        {
+          "model": "anthropic/claude-3.5-sonnet",
+          "cost": 0.147522,
+          "requests": 5
+        }
+      ]
     },
     "2026-02-08": {
       "cost": 0.029192999999999997,
-      "requestCount": 20
+      "requestCount": 20,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.018764,
+          "requests": 4
+        },
+        {
+          "model": "openai/gpt-oss-120b",
+          "cost": 0.010429,
+          "requests": 16
+        }
+      ]
     },
     "2026-02-07": {
       "cost": 0.014712,
-      "requestCount": 3
+      "requestCount": 3,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.014712,
+          "requests": 3
+        }
+      ]
     },
     "2026-02-06": {
       "cost": 1.796402,
-      "requestCount": 170
+      "requestCount": 170,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 1.367732,
+          "requests": 69
+        },
+        {
+          "model": "anthropic/claude-3.5-sonnet",
+          "cost": 0.268602,
+          "requests": 10
+        },
+        {
+          "model": "openai/gpt-5-mini-2025-08-07",
+          "cost": 0.11999,
+          "requests": 42
+        }
+      ]
     },
     "2026-02-05": {
       "cost": 0.748399,
-      "requestCount": 59
+      "requestCount": 59,
+      "topModels": [
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.744703,
+          "requests": 54
+        },
+        {
+          "model": "x-ai/grok-4.1-fast",
+          "cost": 0.003696,
+          "requests": 5
+        }
+      ]
     },
     "2026-02-04": {
       "cost": 3.500361,
-      "requestCount": 1114
+      "requestCount": 1114,
+      "topModels": [
+        {
+          "model": "anthropic/claude-3.5-sonnet",
+          "cost": 2.9032980000000004,
+          "requests": 136
+        },
+        {
+          "model": "google/gemini-2.0-flash-lite-001",
+          "cost": 0.313339,
+          "requests": 874
+        },
+        {
+          "model": "openai/gpt-4o",
+          "cost": 0.170171,
+          "requests": 13
+        }
+      ]
     },
     "2026-02-03": {
       "cost": 1.461134,
-      "requestCount": 455
+      "requestCount": 455,
+      "topModels": [
+        {
+          "model": "anthropic/claude-3.5-sonnet",
+          "cost": 1.097244,
+          "requests": 55
+        },
+        {
+          "model": "google/gemini-2.0-flash-lite-001",
+          "cost": 0.147248,
+          "requests": 301
+        },
+        {
+          "model": "openai/gpt-5-mini-2025-08-07",
+          "cost": 0.134457,
+          "requests": 90
+        }
+      ]
     }
-  }
+  },
+  "lastCheckUsage": 305.736253853,
+  "lastCheckTime": "2026-03-06T09:04:56.434Z",
+  "monthlyBudgetAlerts": []
 }

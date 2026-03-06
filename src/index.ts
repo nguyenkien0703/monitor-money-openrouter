@@ -81,6 +81,124 @@ class CreditMonitor {
     return historySum + todayCost;
   }
 
+  private async detectAnomaly(currentTotalUsage: number): Promise<void> {
+    const today = this.getCurrentDay();
+    const todayCost = (this.state.currentDay === today && this.state.dayStartUsage > 0)
+      ? currentTotalUsage - this.state.dayStartUsage : 0;
+
+    if (todayCost <= 0) return;
+    if ((this.state.anomalyAlertDate ?? '') === today) return; // already alerted today
+
+    // Gather up to 7 completed days from history
+    const past: number[] = [];
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(today + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() - i);
+      const date = d.toISOString().slice(0, 10);
+      const cost = this.state.dailyHistory?.[date]?.cost;
+      if (cost !== null && cost !== undefined) past.push(cost);
+    }
+
+    if (past.length < 3) return; // not enough data to compare
+
+    const avg = past.reduce((s, c) => s + c, 0) / past.length;
+    if (todayCost > avg * this.config.anomalyMultiplier) {
+      this.state.anomalyAlertDate = today;
+      this.persistence.saveState(this.state);
+      console.log(`🚨 Anomaly: today=$${todayCost.toFixed(4)}, avg7d=$${avg.toFixed(4)}`);
+      await this.telegram.sendAnomalyAlert(todayCost, avg, this.config.anomalyMultiplier);
+    }
+  }
+
+  private async sendMonthlyRecap(): Promise<void> {
+    const now = new Date();
+    // "previous month" = one month before current UTC month
+    const prevYear = now.getUTCMonth() === 0 ? now.getUTCFullYear() - 1 : now.getUTCFullYear();
+    const prevMonth = now.getUTCMonth() === 0 ? 12 : now.getUTCMonth();
+    const prevMonthStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
+
+    if ((this.state.monthlyRecapSent ?? '') === prevMonthStr) return;
+
+    const entries = Object.entries(this.state.dailyHistory ?? {})
+      .filter(([date]) => date.startsWith(prevMonthStr));
+
+    if (entries.length === 0) return;
+
+    const totalSpent = entries.reduce((s, [, r]) => s + (r.cost ?? 0), 0);
+    const totalRequests = entries.every(([, r]) => r.requestCount !== null)
+      ? entries.reduce((s, [, r]) => s + (r.requestCount ?? 0), 0)
+      : null;
+    const avgPerDay = totalSpent / entries.length;
+    const topDay = entries.reduce<{ date: string; cost: number } | null>((top, [date, r]) => {
+      const c = r.cost ?? 0;
+      return !top || c > top.cost ? { date, cost: c } : top;
+    }, null);
+
+    this.state.monthlyRecapSent = prevMonthStr;
+    this.persistence.saveState(this.state);
+
+    console.log(`📅 Sending monthly recap for ${prevMonthStr}`);
+    await this.telegram.sendMonthlyRecap(prevMonthStr, totalSpent, this.config.monthlyBudget, avgPerDay, topDay, totalRequests);
+  }
+
+  private startPolling(): void {
+    let offset = 0;
+    const poll = async () => {
+      const updates = await this.telegram.getUpdates(offset);
+      for (const update of updates) {
+        offset = update.update_id + 1;
+        const text = (update.message?.text ?? '').trim().toLowerCase();
+        const chatId = String(update.message?.chat.id ?? '');
+        if (chatId !== this.config.telegramChatId) continue; // ignore other chats
+        console.log(`📨 Command received: ${text}`);
+        if (text === '/status') await this.handleStatusCommand();
+        else if (text === '/report') await this.sendDailyReport();
+        else if (text === '/budget') await this.handleBudgetCommand();
+        else if (text === '/help') await this.telegram.sendHelpMessage();
+      }
+      setTimeout(poll, 1000);
+    };
+    poll();
+    console.log('📨 Telegram command polling started');
+  }
+
+  private async handleStatusCommand(): Promise<void> {
+    try {
+      const balance = await this.openRouter.getCreditBalance();
+      const today = this.getCurrentDay();
+      const currentMonth = this.getCurrentMonth();
+      const todayCost = (this.state.currentDay === today && this.state.dayStartUsage > 0)
+        ? balance.totalUsage - this.state.dayStartUsage : null;
+      const monthlySpend = this.getMonthlySpend(balance.totalUsage, today, currentMonth);
+      const dayOfMonth = new Date().getUTCDate();
+      const burnRatePerDay = dayOfMonth > 0 ? monthlySpend / dayOfMonth : 0;
+      await this.telegram.sendQuickStatus(balance.remainingBalance, todayCost, {
+        spent: monthlySpend,
+        budget: this.config.monthlyBudget,
+        burnRatePerDay,
+      });
+    } catch (error) {
+      console.error('❌ /status error:', error instanceof Error ? error.message : error);
+    }
+  }
+
+  private async handleBudgetCommand(): Promise<void> {
+    try {
+      const balance = await this.openRouter.getCreditBalance();
+      const today = this.getCurrentDay();
+      const currentMonth = this.getCurrentMonth();
+      const monthlySpend = this.getMonthlySpend(balance.totalUsage, today, currentMonth);
+      const dayOfMonth = new Date().getUTCDate();
+      const daysInMonth = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth() + 1, 0)).getUTCDate();
+      const burnRatePerDay = dayOfMonth > 0 ? monthlySpend / dayOfMonth : 0;
+      const projected = burnRatePerDay * daysInMonth;
+      const daysLeft = burnRatePerDay > 0 ? (this.config.monthlyBudget - monthlySpend) / burnRatePerDay : daysInMonth - dayOfMonth;
+      await this.telegram.sendBudgetStatus({ spent: monthlySpend, budget: this.config.monthlyBudget, projected, burnRatePerDay, daysLeft });
+    } catch (error) {
+      console.error('❌ /budget error:', error instanceof Error ? error.message : error);
+    }
+  }
+
   private async checkBudgets(currentTotalUsage: number): Promise<void> {
     const now = Date.now();
     const today = this.getCurrentDay();
@@ -165,14 +283,28 @@ class CreditMonitor {
       }
 
       // Build last 5 days: today (partial) + last 4 completed days
-      const rows: Array<{ date: string; record: DayRecord; isToday: boolean }> = [
-        { date: today, record: { cost: todayCost, requestCount: null }, isToday: true },
+      const todayRequestCount = this.state.dailyHistory[today]?.requestCount ?? null;
+      const rawRows = [
+        { date: today, record: { cost: todayCost, requestCount: todayRequestCount } as DayRecord, isToday: true },
         ...[1, 2, 3, 4].map(i => ({
           date: getPrevDate(i),
           record: this.state.dailyHistory[getPrevDate(i)] ?? { cost: null, requestCount: null },
           isToday: false,
         })),
       ];
+
+      // Compute trend arrows by comparing each row to the next (older) row
+      const rows = rawRows.map((row, i) => {
+        const nextCost = rawRows[i + 1]?.record.cost ?? null;
+        const thisCost = row.record.cost;
+        let trend: '↑' | '↓' | '→' | null = null;
+        if (thisCost !== null && nextCost !== null) {
+          if (thisCost > nextCost * 1.05) trend = '↑';
+          else if (thisCost < nextCost * 0.95) trend = '↓';
+          else trend = '→';
+        }
+        return { ...row, trend };
+      });
 
       // Build monthly stats for report
       const currentMonth = this.getCurrentMonth();
@@ -270,6 +402,7 @@ class CreditMonitor {
       await this.detectTopup(balance.totalCredits);
       await this.handleDailyTracking(balance.totalUsage);
       await this.checkBudgets(balance.totalUsage);
+      await this.detectAnomaly(balance.totalUsage);
 
       if (balance.remainingBalance < this.config.balanceThreshold) {
         console.log(`\n⚠️  WARNING: Balance below threshold ($${this.config.balanceThreshold})!`);
@@ -312,6 +445,14 @@ class CreditMonitor {
     cron.schedule(`0 ${hour} * * *`, () => {
       this.sendDailyReport();
     }, { timezone: 'UTC' });
+
+    // Monthly recap on the 1st of each month at 00:05 UTC
+    cron.schedule('5 0 1 * *', () => {
+      this.sendMonthlyRecap();
+    }, { timezone: 'UTC' });
+
+    // Start Telegram command polling
+    this.startPolling();
 
     console.log(`⏰ Scheduled to run every ${this.config.checkIntervalMinutes} minutes`);
     console.log(`📊 Daily report scheduled at ${hour}:00 UTC`);

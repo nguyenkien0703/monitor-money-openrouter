@@ -24,6 +24,8 @@ export interface AppState {
   lastCheckTime: string;         // ISO string
   monthlyBudgetAlerts: string[]; // e.g. ["2026-03_80", "2026-03_90"]
   dailyBudgetAlertDate: string;  // "YYYY-MM-DD" of last daily alert
+  anomalyAlertDate: string;      // "YYYY-MM-DD" of last anomaly alert
+  monthlyRecapSent: string;      // "YYYY-MM" of last monthly recap sent
 }
 
 const DEFAULT_STATE: AppState = {
@@ -37,6 +39,8 @@ const DEFAULT_STATE: AppState = {
   lastCheckTime: '',
   monthlyBudgetAlerts: [],
   dailyBudgetAlertDate: '',
+  anomalyAlertDate: '',
+  monthlyRecapSent: '',
 };
 
 export class PersistenceService {

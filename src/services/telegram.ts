@@ -12,11 +12,13 @@ export class TelegramService {
     this.baseUrl = `https://api.telegram.org/bot${botToken}`;
   }
 
+  private readonly cmdFooter = '\n\n<i>/status · /budget · /report · /help</i>';
+
   async sendMessage(text: string): Promise<void> {
     try {
       await axios.post(`${this.baseUrl}/sendMessage`, {
         chat_id: this.chatId,
-        text,
+        text: text + this.cmdFooter,
         parse_mode: 'HTML',
       });
       console.log('✅ Telegram notification sent successfully');
@@ -108,8 +110,110 @@ Kiểm tra ngay các process đang chạy!
     await this.sendMessage(message);
   }
 
+  async getUpdates(offset: number): Promise<Array<{ update_id: number; message?: { text: string; chat: { id: string } } }>> {
+    try {
+      const response = await axios.get(`${this.baseUrl}/getUpdates`, {
+        params: { offset, timeout: 25 },
+        timeout: 35000,
+      });
+      return response.data.result ?? [];
+    } catch {
+      return [];
+    }
+  }
+
+  async sendQuickStatus(
+    remaining: number,
+    todayCost: number | null,
+    monthly: { spent: number; budget: number; burnRatePerDay: number },
+  ): Promise<void> {
+    const pct = (monthly.spent / monthly.budget * 100).toFixed(1);
+    const todayStr = todayCost !== null ? `$${todayCost.toFixed(4)}` : 'N/A';
+    const message = `⚡️ <b>Quick Status</b>
+
+💵 Balance: <b>$${remaining.toFixed(2)}</b>
+📊 Hôm nay: <b>${todayStr}</b>
+💰 Tháng này: <b>$${monthly.spent.toFixed(2)} / $${monthly.budget.toFixed(2)}</b> (${pct}%)
+🔥 Burn rate: $${monthly.burnRatePerDay.toFixed(2)}/ngày
+
+🕐 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+    await this.sendMessage(message);
+  }
+
+  async sendBudgetStatus(
+    monthly: { spent: number; budget: number; projected: number; burnRatePerDay: number; daysLeft: number },
+  ): Promise<void> {
+    const pct = (monthly.spent / monthly.budget * 100).toFixed(1);
+    const bar = Math.round(Number(pct) / 10);
+    const progressBar = '█'.repeat(bar) + '░'.repeat(10 - bar);
+    const now = new Date();
+    const monthName = now.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const remaining = Math.max(0, monthly.budget - monthly.spent);
+    const message = `💰 <b>Ngân sách ${monthName}</b>
+
+<code>${progressBar} ${pct}%</code>
+Đã dùng: <b>$${monthly.spent.toFixed(2)}</b> / $${monthly.budget.toFixed(2)}
+Còn lại: <b>$${remaining.toFixed(2)}</b>
+Burn rate: $${monthly.burnRatePerDay.toFixed(2)}/ngày
+Dự báo cuối tháng: <b>$${monthly.projected.toFixed(2)}</b>
+Còn ~${Math.max(0, Math.floor(monthly.daysLeft))} ngày trước khi hết budget
+
+🕐 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+    await this.sendMessage(message);
+  }
+
+  async sendAnomalyAlert(todayCost: number, avg7Day: number, multiplier: number): Promise<void> {
+    const ratio = (todayCost / avg7Day).toFixed(1);
+    const message = `🚨 <b>Chi phí bất thường hôm nay!</b>
+
+📈 Hôm nay: <b>$${todayCost.toFixed(4)}</b>
+📊 TB 7 ngày: $${avg7Day.toFixed(4)}
+⚠️ Gấp <b>${ratio}x</b> bình thường (ngưỡng: ${multiplier}x)
+
+Kiểm tra ngay các process đang chạy!
+🕐 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+    await this.sendMessage(message);
+  }
+
+  async sendMonthlyRecap(
+    month: string,
+    totalSpent: number,
+    budget: number,
+    avgPerDay: number,
+    topDay: { date: string; cost: number } | null,
+    totalRequests: number | null,
+  ): Promise<void> {
+    const [year, m] = month.split('-');
+    const monthLabel = `${m}/${year}`;
+    const pct = (totalSpent / budget * 100).toFixed(1);
+    const withinBudget = totalSpent <= budget;
+    const topDayStr = topDay
+      ? `📅 Ngày tốn nhất: ${topDay.date.split('-').reverse().join('/')} ($${topDay.cost.toFixed(4)})`
+      : '';
+    const reqStr = totalRequests !== null ? `\n📨 Tổng requests: <b>${totalRequests.toLocaleString()}</b>` : '';
+    const message = `📅 <b>Tổng kết tháng ${monthLabel}</b>
+
+💸 Tổng chi: <b>$${totalSpent.toFixed(2)}</b> / $${budget.toFixed(2)} (${pct}%)
+${withinBudget ? '✅ Trong ngân sách!' : '⚠️ Vượt ngân sách!'}
+💡 Trung bình/ngày: $${avgPerDay.toFixed(4)}${reqStr}
+${topDayStr}
+
+🕐 ${new Date().toLocaleString('en-US', { timeZone: 'UTC' })} UTC`;
+    await this.sendMessage(message);
+  }
+
+  async sendHelpMessage(): Promise<void> {
+    const message = `🤖 <b>OpenRouter Monitor – Lệnh có sẵn</b>
+
+/status – Balance + chi phí hôm nay + % budget
+/budget – Chi tiết ngân sách tháng + dự báo
+/report – Báo cáo 5 ngày gần nhất
+/help – Danh sách lệnh này`;
+    await this.sendMessage(message);
+  }
+
   async sendDailyReport(
-    rows: Array<{ date: string; record: DayRecord; isToday: boolean }>,
+    rows: Array<{ date: string; record: DayRecord; isToday: boolean; trend?: '↑' | '↓' | '→' | null }>,
     monthly: { spent: number; budget: number; projected: number; burnRatePerDay: number; daysLeft: number } | null,
   ): Promise<void> {
     const formatDate = (d: string) => {
@@ -121,11 +225,12 @@ Kiểm tra ngay các process đang chạy!
     const header = `${'Ngày'.padEnd(10)} ${'Requests'.padStart(9)} ${'Cost'.padStart(12)}`;
     const sep = '─'.repeat(header.length);
 
-    const dataLines = rows.map(({ date, record, isToday }) => {
+    const dataLines = rows.map(({ date, record, isToday, trend }) => {
       const dateStr = formatDate(date) + (isToday ? '*' : ' ');
       const req = record.requestCount !== null ? String(record.requestCount) : 'N/A';
       const cost = record.cost !== null ? `$${record.cost.toFixed(4)}` : 'N/A';
-      return `${dateStr.padEnd(10)} ${pad(req, 9)} ${pad(cost, 12)}`;
+      const trendChar = trend ?? ' ';
+      return `${dateStr.padEnd(10)} ${pad(req, 9)} ${pad(cost, 12)}${trendChar}`;
     });
 
     const knownCosts = rows.map(r => r.record.cost).filter((c): c is number => c !== null);
