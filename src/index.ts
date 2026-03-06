@@ -82,8 +82,6 @@ class CreditMonitor {
         ? balance.totalUsage - this.state.dayStartUsage
         : null;
 
-      // todayRequestCount removed - /api/v1/activity not available on public API
-
       if (!this.state.dailyHistory) this.state.dailyHistory = {};
 
       const getPrevDate = (daysBack: number) => {
@@ -91,6 +89,22 @@ class CreditMonitor {
         d.setUTCDate(d.getUTCDate() - daysBack);
         return d.toISOString().slice(0, 10);
       };
+
+      // Fetch from API if management key is configured
+      if (this.config.openRouterManagementKey) {
+        const fromISO = new Date(getPrevDate(4) + 'T00:00:00Z').toISOString();
+        const toISO = new Date().toISOString();
+        const apiStats = await this.openRouter.fetchDailyStatsByManagementKey(
+          this.config.openRouterManagementKey, fromISO, toISO,
+        );
+        if (apiStats) {
+          for (const [date, stats] of apiStats.entries()) {
+            this.state.dailyHistory[date] = stats;
+          }
+          this.persistence.saveState(this.state);
+        }
+      }
+
       // Build last 5 days: today (partial) + last 4 completed days
       const rows: Array<{ date: string; record: DayRecord; isToday: boolean }> = [
         { date: today, record: { cost: todayCost, requestCount: null }, isToday: true },

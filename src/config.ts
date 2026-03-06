@@ -4,6 +4,7 @@ dotenv.config();
 
 export interface Config {
   openRouterApiKey: string;
+  openRouterManagementKey: string; // optional, for fetching activity history
   telegramBotToken: string;
   telegramChatId: string;
   balanceThreshold: number;
@@ -41,6 +42,7 @@ export function loadConfig(): Config {
     balanceThreshold: getEnvVarAsNumber('BALANCE_THRESHOLD', 4),
     checkIntervalMinutes: getEnvVarAsNumber('CHECK_INTERVAL_MINUTES', 30),
     monthlyTopupLimit: getEnvVarAsNumber('MONTHLY_TOPUP_LIMIT', 2),
+    openRouterManagementKey: process.env['OPENROUTER_MANAGEMENT_KEY'] || '',
     statePath: process.env['STATE_FILE_PATH'] || './data/state.json',
     dailyReportHourUTC: getEnvVarAsNumber('DAILY_REPORT_HOUR_UTC', 22),
   };

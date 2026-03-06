@@ -1,0 +1,133 @@
+{
+  "previousTotalCredits": 325,
+  "monthlyTopupCount": 0,
+  "currentMonth": "2026-03",
+  "currentDay": "2026-03-06",
+  "dayStartUsage": 305.663048303,
+  "dailyHistory": {
+    "2026-03-05": {
+      "cost": 4.090937000000001,
+      "requestCount": 898
+    },
+    "2026-03-04": {
+      "cost": 0.38770400000000005,
+      "requestCount": 106
+    },
+    "2026-03-03": {
+      "cost": 2.036476,
+      "requestCount": 362
+    },
+    "2026-03-02": {
+      "cost": 1.602658,
+      "requestCount": 378
+    },
+    "2026-03-01": {
+      "cost": 1.2866300000000002,
+      "requestCount": 52
+    },
+    "2026-02-28": {
+      "cost": 0.223833,
+      "requestCount": 23
+    },
+    "2026-02-27": {
+      "cost": 1.8272669999999998,
+      "requestCount": 246
+    },
+    "2026-02-26": {
+      "cost": 0.6686989999999999,
+      "requestCount": 177
+    },
+    "2026-02-25": {
+      "cost": 0.37386,
+      "requestCount": 37
+    },
+    "2026-02-24": {
+      "cost": 1.2983330000000002,
+      "requestCount": 83
+    },
+    "2026-02-23": {
+      "cost": 0.055524,
+      "requestCount": 9
+    },
+    "2026-02-22": {
+      "cost": 0.038268,
+      "requestCount": 8
+    },
+    "2026-02-21": {
+      "cost": 0.528495,
+      "requestCount": 10
+    },
+    "2026-02-20": {
+      "cost": 0.088196,
+      "requestCount": 8
+    },
+    "2026-02-19": {
+      "cost": 0.039482,
+      "requestCount": 4
+    },
+    "2026-02-18": {
+      "cost": 0.12491,
+      "requestCount": 10
+    },
+    "2026-02-17": {
+      "cost": 0.018914,
+      "requestCount": 4
+    },
+    "2026-02-16": {
+      "cost": 0.031295,
+      "requestCount": 6
+    },
+    "2026-02-15": {
+      "cost": 0.039433,
+      "requestCount": 6
+    },
+    "2026-02-14": {
+      "cost": 0.015394,
+      "requestCount": 3
+    },
+    "2026-02-13": {
+      "cost": 0.068372,
+      "requestCount": 17
+    },
+    "2026-02-12": {
+      "cost": 0.295117,
+      "requestCount": 32
+    },
+    "2026-02-11": {
+      "cost": 0.204994,
+      "requestCount": 22
+    },
+    "2026-02-10": {
+      "cost": 2.1102320000000003,
+      "requestCount": 144
+    },
+    "2026-02-09": {
+      "cost": 0.859555,
+      "requestCount": 131
+    },
+    "2026-02-08": {
+      "cost": 0.029192999999999997,
+      "requestCount": 20
+    },
+    "2026-02-07": {
+      "cost": 0.014712,
+      "requestCount": 3
+    },
+    "2026-02-06": {
+      "cost": 1.796402,
+      "requestCount": 170
+    },
+    "2026-02-05": {
+      "cost": 0.748399,
+      "requestCount": 59
+    },
+    "2026-02-04": {
+      "cost": 3.500361,
+      "requestCount": 1114
+    },
+    "2026-02-03": {
+      "cost": 1.461134,
+      "requestCount": 455
+    }
+  }
+}

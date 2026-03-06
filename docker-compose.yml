@@ -9,11 +9,13 @@ services:
     restart: unless-stopped
     environment:
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_MANAGEMENT_KEY=${OPENROUTER_MANAGEMENT_KEY:-}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
       - BALANCE_THRESHOLD=${BALANCE_THRESHOLD:-4}
       - CHECK_INTERVAL_MINUTES=${CHECK_INTERVAL_MINUTES:-30}
       - MONTHLY_TOPUP_LIMIT=${MONTHLY_TOPUP_LIMIT:-2}
+      - DAILY_REPORT_HOUR_UTC=${DAILY_REPORT_HOUR_UTC:-17}
       - STATE_FILE_PATH=/app/data/state.json
     volumes:
       - openrouter-monitor-data:/app/data
