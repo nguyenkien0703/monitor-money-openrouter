@@ -54,12 +54,8 @@ class CreditMonitor {
     if (this.state.currentDay !== today) {
       const yesterdayDate = this.state.currentDay;
       const yesterdayCost = currentTotalUsage - this.state.dayStartUsage;
-      const fromISO = `${yesterdayDate}T00:00:00Z`;
-      const toISO = `${yesterdayDate}T23:59:59Z`;
-      const requestCount = await this.openRouter.getDailyRequestCount(fromISO, toISO);
-
       if (!this.state.dailyHistory) this.state.dailyHistory = {};
-      this.state.dailyHistory[yesterdayDate] = { cost: yesterdayCost, requestCount };
+      this.state.dailyHistory[yesterdayDate] = { cost: yesterdayCost, requestCount: null };
 
       // Keep only last 30 days
       const sortedDates = Object.keys(this.state.dailyHistory).sort();
@@ -67,7 +63,7 @@ class CreditMonitor {
         delete this.state.dailyHistory[sortedDates[0]];
       }
 
-      console.log(`📅 Day completed: ${yesterdayDate}, cost=$${yesterdayCost.toFixed(6)}, requests=${requestCount ?? 'N/A'}`);
+      console.log(`📅 Day completed: ${yesterdayDate}, cost=$${yesterdayCost.toFixed(6)}`);
 
       // Reset for new day
       this.state.currentDay = today;
@@ -80,18 +76,29 @@ class CreditMonitor {
     try {
       const today = this.getCurrentDay();
       const balance = await this.openRouter.getCreditBalance();
-      const todayCost = balance.totalUsage - this.state.dayStartUsage;
-      const fromISO = `${today}T00:00:00Z`;
-      const toISO = new Date().toISOString();
-      const todayRequestCount = await this.openRouter.getDailyRequestCount(fromISO, toISO);
+
+      // Only calculate today's cost if we have a valid baseline for today
+      const todayCost = (this.state.currentDay === today && this.state.dayStartUsage > 0)
+        ? balance.totalUsage - this.state.dayStartUsage
+        : null;
+
+      // todayRequestCount removed - /api/v1/activity not available on public API
 
       if (!this.state.dailyHistory) this.state.dailyHistory = {};
 
+      const getPrevDate = (daysBack: number) => {
+        const d = new Date(today + 'T00:00:00Z');
+        d.setUTCDate(d.getUTCDate() - daysBack);
+        return d.toISOString().slice(0, 10);
+      };
       // Build last 5 days: today (partial) + last 4 completed days
-      const completedDates = Object.keys(this.state.dailyHistory).sort().reverse().slice(0, 4);
       const rows: Array<{ date: string; record: DayRecord; isToday: boolean }> = [
-        { date: today, record: { cost: todayCost, requestCount: todayRequestCount }, isToday: true },
-        ...completedDates.map(d => ({ date: d, record: this.state.dailyHistory[d], isToday: false })),
+        { date: today, record: { cost: todayCost, requestCount: null }, isToday: true },
+        ...[1, 2, 3, 4].map(i => ({
+          date: getPrevDate(i),
+          record: this.state.dailyHistory[getPrevDate(i)] ?? { cost: null, requestCount: null },
+          isToday: false,
+        })),
       ];
 
       await this.telegram.sendDailyReport(rows);
@@ -229,6 +236,15 @@ async function main() {
   try {
     const monitor = new CreditMonitor();
     await monitor.initialize();
+
+    if (process.argv.includes('--test-report')) {
+      console.log('🧪 Test mode: sending daily report now...');
+      await monitor.checkBalance(); // establishes today's baseline first
+      await monitor.sendDailyReport();
+      console.log('✅ Done.');
+      process.exit(0);
+    }
+
     monitor.start();
   } catch (error) {
     console.error('❌ Fatal error:', error instanceof Error ? error.message : error);

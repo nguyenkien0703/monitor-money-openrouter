@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 export interface DayRecord {
-  cost: number;
+  cost: number | null;
   requestCount: number | null;
 }
 

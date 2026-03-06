@@ -45,25 +45,6 @@ export class OpenRouterService {
     }
   }
 
-  async getDailyRequestCount(fromISO: string, toISO: string): Promise<number | null> {
-    try {
-      const response = await axios.get(`${this.baseUrl}/activity`, {
-        headers: { 'Authorization': `Bearer ${this.apiKey}` },
-        params: { from: fromISO, to: toISO, limit: 1000 },
-      });
-      const data = response.data?.data ?? response.data;
-      if (Array.isArray(data)) {
-        return data.length;
-      }
-      if (typeof data?.count === 'number') {
-        return data.count;
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  }
-
   formatBalance(balance: CreditBalance): string {
     return `💰 OpenRouter Credit Balance:
 ━━━━━━━━━━━━━━━━━━━━

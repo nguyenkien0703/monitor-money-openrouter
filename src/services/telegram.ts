@@ -86,16 +86,14 @@ Please top-up your account to avoid service interruption.
     const dataLines = rows.map(({ date, record, isToday }) => {
       const dateStr = formatDate(date) + (isToday ? '*' : ' ');
       const req = record.requestCount !== null ? String(record.requestCount) : 'N/A';
-      const cost = `$${record.cost.toFixed(4)}`;
+      const cost = record.cost !== null ? `$${record.cost.toFixed(4)}` : 'N/A';
       return `${dateStr.padEnd(10)} ${pad(req, 9)} ${pad(cost, 12)}`;
     });
 
-    const totalCost = rows.reduce((sum, r) => sum + r.record.cost, 0);
-    const totalReq = rows.every(r => r.record.requestCount !== null)
-      ? rows.reduce((sum, r) => sum + (r.record.requestCount ?? 0), 0)
-      : null;
-    const totalReqStr = totalReq !== null ? String(totalReq) : 'N/A';
-    const totalLine = `${'Total'.padEnd(10)} ${pad(totalReqStr, 9)} ${pad('$' + totalCost.toFixed(4), 12)}`;
+    const knownCosts = rows.map(r => r.record.cost).filter((c): c is number => c !== null);
+    const totalCost = knownCosts.length > 0 ? knownCosts.reduce((sum, c) => sum + c, 0) : null;
+    const totalCostStr = totalCost !== null ? '$' + totalCost.toFixed(4) : 'N/A';
+    const totalLine = `${'Total'.padEnd(10)} ${'N/A'.padStart(9)} ${pad(totalCostStr, 12)}`;
 
     const table = [header, sep, ...dataLines, sep, totalLine].join('\n');
 
