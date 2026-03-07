@@ -9,317 +9,472 @@
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; }
     .card { background: #1f2937; border-radius: 0.75rem; padding: 1rem; }
-
-    /* Tooltip */
     .ti {
-      position: relative;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 14px; height: 14px;
-      border-radius: 50%;
-      background: #374151;
-      color: #9ca3af;
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; border-radius: 50%;
+      background: #374151; color: #9ca3af;
       font-size: 9px; font-style: italic; font-weight: bold;
-      cursor: help;
-      margin-left: 4px;
-      flex-shrink: 0;
-      vertical-align: middle;
+      cursor: help; margin-left: 4px; flex-shrink: 0; vertical-align: middle;
     }
-    .ti::after {
-      content: attr(data-t);
-      display: none;
-      position: absolute;
-      bottom: calc(100% + 6px);
-      left: 50%;
-      transform: translateX(-50%);
-      background: #111827;
-      border: 1px solid #374151;
-      color: #d1d5db;
-      font-size: 11px; font-style: normal; font-weight: normal;
-      line-height: 1.5;
-      padding: 8px 12px;
-      border-radius: 8px;
-      width: 220px;
-      white-space: normal;
-      z-index: 1000;
-      pointer-events: none;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    #tooltip-box {
+      position: fixed; z-index: 9999; pointer-events: none;
+      background: #111827; border: 1px solid #374151; color: #d1d5db;
+      font-size: 11px; line-height: 1.5; padding: 8px 12px; border-radius: 8px;
+      width: 220px; white-space: normal; box-shadow: 0 4px 16px rgba(0,0,0,0.6); display: none;
     }
-    .ti:hover::after { display: block; }
-    .ti-left::after  { left: 0;   transform: none; }
-    .ti-right::after { left: auto; right: 0; transform: none; }
+    .range-btn { padding: 4px 12px; border-radius: 9999px; font-size: 12px; cursor: pointer; transition: all .15s; }
+    .range-btn.active { background: #374151; color: #fff; }
+    .range-btn:not(.active) { color: #6b7280; }
+    .range-btn:hover:not(.active) { color: #d1d5db; }
   </style>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen p-4 md:p-6">
-  <div class="max-w-5xl mx-auto">
+<div class="max-w-5xl mx-auto">
 
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-6">
-      <div class="flex items-center gap-3">
-        <h1 class="text-base font-semibold tracking-tight">🤖 OpenRouter Monitor</h1>
-        <a href="https://t.me/monitor_openrouter_bot" target="_blank"
-           class="text-xs text-sky-400 hover:text-sky-300 bg-sky-900/40 px-2 py-0.5 rounded-full">
-          @monitor_openrouter_bot ↗
-        </a>
-      </div>
-      <div class="flex items-center gap-3 text-xs text-gray-500">
-        <span>Updated: <span id="lastUpdated">–</span></span>
-        <button onclick="loadAll()" class="text-blue-400 hover:text-blue-300 text-base leading-none" title="Refresh">↻</button>
-        <a href="/logout" class="text-gray-500 hover:text-gray-300 transition-colors" title="Đăng xuất">⎋ Logout</a>
-      </div>
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-5">
+    <div class="flex items-center gap-3 flex-wrap">
+      <h1 class="text-base font-semibold tracking-tight">🤖 OpenRouter Monitor</h1>
+      <a href="https://t.me/monitor_openrouter_bot" target="_blank"
+         class="text-xs text-sky-400 hover:text-sky-300 bg-sky-900/40 px-2 py-0.5 rounded-full">
+        @monitor_openrouter_bot ↗
+      </a>
     </div>
-
-    <!-- Stat cards -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-      <div class="card">
-        <p class="text-xs text-gray-400 mb-1 flex items-center">Balance
-          <span class="ti ti-left" data-t="Số dư còn lại trong tài khoản OpenRouter. Công thức: Tổng credits đã nạp − Tổng đã sử dụng từ trước đến nay.">i</span>
-        </p>
-        <p id="statBalance" class="text-2xl font-bold text-emerald-400">–</p>
-      </div>
-      <div class="card">
-        <p class="text-xs text-gray-400 mb-1 flex items-center">Hôm nay
-          <span class="ti" data-t="Chi phí API từ 00:00 UTC đến lần kiểm tra gần nhất. Cập nhật theo chu kỳ check (mặc định 10 phút). Requests hiện N/A vì API chỉ trả data ngày đã hoàn thành.">i</span>
-        </p>
-        <p id="statToday" class="text-2xl font-bold text-sky-400">–</p>
-        <p id="statTodayReq" class="text-xs text-gray-500 mt-0.5">– requests</p>
-      </div>
-      <div class="card">
-        <p class="text-xs text-gray-400 mb-1 flex items-center">Tháng này
-          <span class="ti" data-t="Phần trăm ngân sách tháng đã dùng. Tính tổng từ ngày 1 đến hôm nay chia cho ngân sách tháng đã cấu hình (MONTHLY_BUDGET).">i</span>
-        </p>
-        <p id="statMonthly" class="text-2xl font-bold text-amber-400">–</p>
-        <p id="statMonthlyDetail" class="text-xs text-gray-500 mt-0.5">–</p>
-      </div>
-      <div class="card">
-        <p class="text-xs text-gray-400 mb-1 flex items-center">Burn rate
-          <span class="ti ti-right" data-t="Tốc độ tiêu tiền trung bình mỗi ngày trong tháng này. Công thức: Tổng đã dùng ÷ Số ngày đã qua. Dùng để dự báo chi phí cuối tháng.">i</span>
-        </p>
-        <p id="statBurn" class="text-2xl font-bold text-orange-400">–</p>
-        <p id="statProjected" class="text-xs text-gray-500 mt-0.5">–</p>
-      </div>
+    <div class="flex items-center gap-3 text-xs text-gray-500">
+      <span id="nextCheck" class="text-emerald-500 font-mono">–</span>
+      <span>Updated: <span id="lastUpdated">–</span></span>
+      <button onclick="loadAll()" title="Refresh" class="text-blue-400 hover:text-blue-300 text-base leading-none">↻</button>
     </div>
-
-    <!-- Budget progress -->
-    <div class="card mb-4">
-      <div class="flex justify-between items-center mb-2">
-        <span class="text-sm font-medium flex items-center">Ngân sách tháng này
-          <span class="ti ti-left" data-t="Thanh tiến trình sử dụng ngân sách. Màu sắc: Xanh = dưới 80% · Vàng = 80–90% · Đỏ = trên 90%. Ngân sách cấu hình qua biến MONTHLY_BUDGET.">i</span>
-        </span>
-        <span id="budgetLabel" class="text-sm font-mono text-gray-300">–</span>
-      </div>
-      <div class="relative h-3 bg-gray-700 rounded-full overflow-hidden mb-2">
-        <div id="budgetBar" class="h-full rounded-full transition-all duration-700 bg-emerald-500" style="width: 0%;"></div>
-      </div>
-      <div class="flex justify-between text-xs text-gray-400">
-        <span id="budgetProjected" class="flex items-center gap-1">–
-          <span class="ti" data-t="Ước tính tổng chi phí đến cuối tháng nếu giữ nguyên burn rate hiện tại. Nếu con số này vượt budget → sẽ nhận cảnh báo.">i</span>
-        </span>
-        <span id="budgetDaysLeft" class="flex items-center gap-1">
-          <span class="ti ti-right" data-t="Số ngày còn lại trước khi hết budget với tốc độ tiêu hiện tại. Công thức: (Budget − Đã dùng) ÷ Burn rate/ngày.">i</span>–
-        </span>
-      </div>
-    </div>
-
-    <!-- Charts row -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-      <div class="card md:col-span-2">
-        <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3 flex items-center">Chi phí theo ngày (30 ngày)
-          <span class="ti ti-left" data-t="Chi phí API mỗi ngày trong 30 ngày qua. Màu sắc: Xanh &lt; $1.5 · Vàng $1.5–3 · Đỏ &gt; $3. Hover vào cột để xem số chính xác.">i</span>
-        </h3>
-        <div style="position: relative; height: 200px;">
-          <canvas id="dailyChart"></canvas>
-        </div>
-      </div>
-      <div class="card">
-        <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3 flex items-center">Top Models – 7 ngày
-          <span class="ti ti-right" data-t="Top 5 models tốn chi phí nhiều nhất trong 7 ngày qua. Dữ liệu tổng hợp từ top 3 models của mỗi ngày — cần Management Key để có data này.">i</span>
-        </h3>
-        <div id="modelsList" class="space-y-3"></div>
-      </div>
-    </div>
-
-    <!-- History table -->
-    <div class="card">
-      <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3">Lịch sử tháng này</h3>
-      <div class="overflow-x-auto">
-        <table class="w-full text-sm">
-          <thead>
-            <tr class="text-xs text-gray-400 border-b border-gray-700">
-              <th class="text-left pb-2 font-medium">Ngày</th>
-              <th class="text-right pb-2 font-medium">
-                <span class="inline-flex items-center justify-end gap-1">Requests
-                  <span class="ti ti-right" data-t="Số lượng API request trong ngày. Lấy từ OpenRouter Management Key API — chỉ có data của ngày đã hoàn thành (UTC). Hôm nay luôn N/A.">i</span>
-                </span>
-              </th>
-              <th class="text-right pb-2 font-medium">
-                <span class="inline-flex items-center justify-end gap-1">Chi phí
-                  <span class="ti ti-right" data-t="Chi phí API trong ngày tính bằng USD. Ngày đã qua: lấy từ API chính xác. Hôm nay (*): tính bằng delta total_usage nên cập nhật mỗi 10 phút.">i</span>
-                </span>
-              </th>
-              <th class="text-right pb-2 font-medium hidden sm:table-cell">
-                <span class="inline-flex items-center justify-end gap-1">Top Model
-                  <span class="ti ti-right" data-t="Model tốn chi phí nhiều nhất trong ngày đó.">i</span>
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody id="historyBody" class="divide-y divide-gray-700/40"></tbody>
-        </table>
-      </div>
-    </div>
-
   </div>
 
-  <script>
-    let dailyChart = null;
+  <!-- Stat cards -->
+  <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+    <div class="card">
+      <p class="text-xs text-gray-400 mb-1 flex items-center">Balance
+        <span class="ti" data-t="Số dư còn lại trong tài khoản OpenRouter. Công thức: Tổng credits đã nạp − Tổng đã sử dụng từ trước đến nay.">i</span>
+      </p>
+      <p id="statBalance" class="text-xl font-bold text-emerald-400">–</p>
+    </div>
+    <div class="card">
+      <p class="text-xs text-gray-400 mb-1 flex items-center">Hôm nay
+        <span class="ti" data-t="Chi phí API từ 00:00 UTC đến lần kiểm tra gần nhất. Cập nhật theo chu kỳ check (mặc định 10 phút).">i</span>
+      </p>
+      <p id="statToday" class="text-xl font-bold text-sky-400">–</p>
+      <p id="statTodayReq" class="text-xs text-gray-500 mt-0.5">–</p>
+    </div>
+    <div class="card">
+      <p class="text-xs text-gray-400 mb-1 flex items-center">Tháng này
+        <span class="ti" data-t="Phần trăm ngân sách tháng đã dùng. Tính tổng từ ngày 1 đến hôm nay chia cho ngân sách (MONTHLY_BUDGET).">i</span>
+      </p>
+      <p id="statMonthly" class="text-xl font-bold text-amber-400">–</p>
+      <p id="statMonthlyDetail" class="text-xs text-gray-500 mt-0.5">–</p>
+    </div>
+    <div class="card">
+      <p class="text-xs text-gray-400 mb-1 flex items-center">Burn rate
+        <span class="ti" data-t="Tốc độ tiêu tiền TB mỗi ngày trong tháng = Tổng đã dùng ÷ Số ngày đã qua.">i</span>
+      </p>
+      <p id="statBurn" class="text-xl font-bold text-orange-400">–</p>
+      <p id="statProjected" class="text-xs text-gray-500 mt-0.5">–</p>
+    </div>
+    <div class="card">
+      <p class="text-xs text-gray-400 mb-1 flex items-center">Cost/Request
+        <span class="ti" data-t="Chi phí trung bình cho mỗi API request. Tính từ các ngày có đủ cả cost lẫn request count.">i</span>
+      </p>
+      <p id="statCostReq" class="text-xl font-bold text-purple-400">–</p>
+      <p id="statCostReqDays" class="text-xs text-gray-500 mt-0.5">–</p>
+    </div>
+  </div>
 
-    function fmt(n, d = 2) {
-      return n != null ? '$' + Number(n).toFixed(d) : 'N/A';
+  <!-- Budget bar -->
+  <div class="card mb-4">
+    <div class="flex justify-between items-center mb-2">
+      <span class="text-sm font-medium flex items-center">Ngân sách tháng này
+        <span class="ti" data-t="Thanh tiến trình sử dụng ngân sách. Màu: Xanh &lt;80% · Vàng 80–90% · Đỏ &gt;90%.">i</span>
+      </span>
+      <span id="budgetLabel" class="text-sm font-mono text-gray-300">–</span>
+    </div>
+    <div class="relative h-3 bg-gray-700 rounded-full overflow-hidden mb-2">
+      <div id="budgetBar" class="h-full rounded-full transition-all duration-700 bg-emerald-500" style="width:0%"></div>
+    </div>
+    <div class="flex justify-between text-xs text-gray-400">
+      <span id="budgetProjected" class="flex items-center gap-1">–
+        <span class="ti" data-t="Ước tính tổng chi phí đến cuối tháng nếu giữ nguyên burn rate. Nếu vượt budget → sẽ nhận cảnh báo.">i</span>
+      </span>
+      <span id="budgetDaysLeft" class="flex items-center gap-1">
+        <span class="ti" data-t="Số ngày còn lại trước khi hết budget = (Budget − Đã dùng) ÷ Burn rate/ngày.">i</span>–
+      </span>
+    </div>
+  </div>
+
+  <!-- Date range picker -->
+  <div class="flex gap-1.5 mb-3">
+    <button class="range-btn active" data-range="30d" onclick="setRange('30d')">30 ngày</button>
+    <button class="range-btn" data-range="7d"  onclick="setRange('7d')">7 ngày</button>
+    <button class="range-btn" data-range="month" onclick="setRange('month')">Tháng này</button>
+    <button class="range-btn" data-range="last-month" onclick="setRange('last-month')">Tháng trước</button>
+  </div>
+
+  <!-- Charts -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+    <div class="card md:col-span-2">
+      <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3 flex items-center">Chi phí theo ngày
+        <span class="ti" data-t="Biểu đồ chi phí mỗi ngày. Màu: Xanh &lt;$1.5 · Vàng $1.5–3 · Đỏ &gt;$3. Đường đứt đỏ = giới hạn ngân sách ngày.">i</span>
+      </h3>
+      <div style="position:relative;height:200px"><canvas id="dailyChart"></canvas></div>
+    </div>
+    <div class="card">
+      <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3 flex items-center">Top Models – 7 ngày
+        <span class="ti" data-t="Top 5 models tốn chi phí nhiều nhất 7 ngày qua. Tổng hợp từ top 3 models của mỗi ngày — cần Management Key.">i</span>
+      </h3>
+      <div style="position:relative;height:180px"><canvas id="modelsChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- Month comparison -->
+  <div class="grid grid-cols-2 gap-4 mb-4">
+    <div class="card">
+      <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3">Tháng này</h3>
+      <div id="thisMonthStats" class="space-y-1.5"></div>
+    </div>
+    <div class="card">
+      <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3">Tháng trước</h3>
+      <div id="lastMonthStats" class="space-y-1.5"></div>
+    </div>
+  </div>
+
+  <!-- Alert history -->
+  <div class="card mb-4">
+    <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3 flex items-center">Alert History
+      <span class="ti" data-t="30 alert gần nhất được gửi qua Telegram. Ghi nhận từ khi khởi động lại gần nhất.">i</span>
+    </h3>
+    <div id="alertsContainer"><p class="text-gray-600 text-sm py-1">Đang tải...</p></div>
+  </div>
+
+  <!-- History table -->
+  <div class="card">
+    <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3">Lịch sử tháng này</h3>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-xs text-gray-400 border-b border-gray-700">
+            <th class="text-left pb-2 font-medium">Ngày</th>
+            <th class="text-right pb-2 font-medium">
+              <span class="inline-flex items-center justify-end gap-1">Requests
+                <span class="ti" data-t="Số API request trong ngày. N/A nếu chưa có data từ Management Key hoặc là ngày hôm nay.">i</span>
+              </span>
+            </th>
+            <th class="text-right pb-2 font-medium">
+              <span class="inline-flex items-center justify-end gap-1">Chi phí
+                <span class="ti" data-t="Chi phí API trong ngày. Ngày đã qua: từ API. Hôm nay (*): delta total_usage, cập nhật mỗi 10 phút.">i</span>
+              </span>
+            </th>
+            <th class="text-right pb-2 font-medium hidden sm:table-cell">
+              <span class="inline-flex items-center justify-end gap-1">Top Model
+                <span class="ti" data-t="Model tốn chi phí nhiều nhất trong ngày đó.">i</span>
+              </span>
+            </th>
+          </tr>
+        </thead>
+        <tbody id="historyBody" class="divide-y divide-gray-700/40"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+<div id="tooltip-box"></div>
+
+<script>
+  // ── State ──────────────────────────────────────────────
+  let dailyChart = null, modelsChart = null;
+  let currentRange = '30d';
+  let countdownTimer = null;
+  let allHistory = [];   // 60 days
+  let statusCache = null;
+
+  // ── Helpers ────────────────────────────────────────────
+  const fmt  = (n, d=2) => n != null ? '$' + Number(n).toFixed(d) : 'N/A';
+  const fmtD = d => { const [,m,day] = d.split('-'); return `${day}/${m}`; };
+  const shortModel = m => m ? (m.split('/')[1] ?? m) : '–';
+
+  function getLastMonth() {
+    const today = new Date().toISOString().slice(0,10);
+    const [y,m] = today.slice(0,7).split('-').map(Number);
+    return m===1 ? `${y-1}-12` : `${y}-${String(m-1).padStart(2,'0')}`;
+  }
+
+  function getFilteredDays() {
+    const today = new Date().toISOString().slice(0,10);
+    const cm = today.slice(0,7);
+    if (currentRange==='7d')          return allHistory.slice(-7);
+    if (currentRange==='30d')         return allHistory.slice(-30);
+    if (currentRange==='month')       return allHistory.filter(d=>d.date.startsWith(cm));
+    if (currentRange==='last-month')  return allHistory.filter(d=>d.date.startsWith(getLastMonth()));
+    return allHistory;
+  }
+
+  function monthStats(days) {
+    const costs = days.map(d=>d.cost).filter(c=>c!==null);
+    const reqs  = days.map(d=>d.requestCount).filter(r=>r!==null);
+    const total = costs.reduce((s,c)=>s+c,0);
+    return {
+      total, days: costs.length,
+      avg: costs.length ? total/costs.length : 0,
+      requests: reqs.length===days.length&&days.length ? reqs.reduce((s,r)=>s+r,0) : null,
+    };
+  }
+
+  // ── Load & render ──────────────────────────────────────
+  async function loadStatus() {
+    statusCache = await fetch('/api/status').then(r=>r.json());
+    const d = statusCache;
+
+    document.getElementById('statBalance').textContent   = fmt(d.balance?.remainingBalance);
+    document.getElementById('statToday').textContent     = fmt(d.today?.cost, 4);
+    document.getElementById('statTodayReq').textContent  = (d.today?.requestCount??'N/A')+' req';
+
+    if (d.monthly) {
+      const pct = Math.min(d.monthly.percentage, 100);
+      document.getElementById('statMonthly').textContent      = d.monthly.percentage.toFixed(1)+'%';
+      document.getElementById('statMonthlyDetail').textContent = `${fmt(d.monthly.spent)} / ${fmt(d.monthly.budget)}`;
+      document.getElementById('statBurn').textContent         = fmt(d.monthly.burnRatePerDay)+'/d';
+      document.getElementById('statProjected').textContent    = 'Dự báo: '+fmt(d.monthly.projected);
+
+      const bar = document.getElementById('budgetBar');
+      bar.style.width = pct+'%';
+      bar.style.background = pct>=90?'#ef4444':pct>=80?'#f59e0b':'#10b981';
+      document.getElementById('budgetLabel').textContent     = `${fmt(d.monthly.spent)} / ${fmt(d.monthly.budget)} · ${d.monthly.percentage.toFixed(1)}%`;
+      document.getElementById('budgetProjected').textContent = 'Dự báo cuối tháng: '+fmt(d.monthly.projected);
+      document.getElementById('budgetDaysLeft').textContent  = `Còn ~${Math.max(0,Math.floor(d.monthly.daysLeft))} ngày trước khi hết budget`;
     }
-    function fmtDate(d) {
-      const [, m, day] = d.split('-');
-      return `${day}/${m}`;
+
+    if (d.lastUpdated) {
+      document.getElementById('lastUpdated').textContent =
+        new Date(d.lastUpdated).toLocaleString('vi-VN',{timeZone:'UTC',hour12:false})+' UTC';
+      startCountdown(d.lastUpdated, d.checkIntervalMinutes);
     }
-    function shortModel(m) {
-      return m ? (m.split('/')[1] ?? m) : '–';
-    }
+  }
 
-    async function loadStatus() {
-      const data = await fetch('/api/status').then(r => r.json());
+  async function loadHistory() {
+    const data = await fetch('/api/history?days=60').then(r=>r.json());
+    allHistory = data.days || [];
+    computeCostPerRequest();
+    renderChart();
+    renderHistoryTable();
+    renderMonthComparison();
+  }
 
-      document.getElementById('statBalance').textContent = fmt(data.balance?.remainingBalance);
-      document.getElementById('statToday').textContent = fmt(data.today?.cost, 4);
-      document.getElementById('statTodayReq').textContent =
-        (data.today?.requestCount != null ? data.today.requestCount : 'N/A') + ' requests';
+  function computeCostPerRequest() {
+    const valid = allHistory.filter(d=>d.cost!==null&&d.requestCount!==null&&d.requestCount>0);
+    if (!valid.length) return;
+    const tc = valid.reduce((s,d)=>s+d.cost,0);
+    const tr = valid.reduce((s,d)=>s+d.requestCount,0);
+    const avg = tc/tr;
+    document.getElementById('statCostReq').textContent    = '$'+(avg*1000).toFixed(3)+'/1k';
+    document.getElementById('statCostReqDays').textContent = `Từ ${valid.length} ngày`;
+  }
 
-      if (data.monthly) {
-        const m = data.monthly;
-        document.getElementById('statMonthly').textContent = m.percentage.toFixed(1) + '%';
-        document.getElementById('statMonthlyDetail').textContent =
-          `$${m.spent.toFixed(2)} / $${m.budget.toFixed(2)}`;
-        document.getElementById('statBurn').textContent = fmt(m.burnRatePerDay) + '/d';
-        document.getElementById('statProjected').textContent = 'Dự báo: ' + fmt(m.projected);
+  function renderChart() {
+    const days   = getFilteredDays();
+    const labels = days.map(d=>fmtD(d.date));
+    const costs  = days.map(d=>d.cost??0);
+    const limit  = statusCache?.dailyBudgetLimit ?? null;
 
-        const pct = Math.min(m.percentage, 100);
-        const bar = document.getElementById('budgetBar');
-        bar.style.width = pct + '%';
-        bar.style.background = pct >= 90 ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#10b981';
+    const ctx = document.getElementById('dailyChart').getContext('2d');
+    if (dailyChart) dailyChart.destroy();
 
-        document.getElementById('budgetLabel').textContent =
-          `$${m.spent.toFixed(2)} / $${m.budget.toFixed(2)} · ${m.percentage.toFixed(1)}%`;
-        document.getElementById('budgetProjected').textContent = 'Dự báo cuối tháng: ' + fmt(m.projected);
-        document.getElementById('budgetDaysLeft').textContent =
-          `Còn ~${Math.max(0, Math.floor(m.daysLeft))} ngày trước khi hết budget`;
-      }
+    const datasets = [{
+      type: 'bar',
+      data: costs,
+      backgroundColor: costs.map(c=>c>3?'#ef4444':c>1.5?'#f59e0b':'#3b82f6'),
+      borderRadius: 4,
+      borderSkipped: false,
+      label: 'Chi phí',
+    }];
 
-      if (data.lastUpdated) {
-        const d = new Date(data.lastUpdated);
-        document.getElementById('lastUpdated').textContent =
-          d.toLocaleString('vi-VN', { timeZone: 'UTC', hour12: false }) + ' UTC';
-      }
-    }
+    if (limit) datasets.push({
+      type: 'line',
+      data: Array(labels.length).fill(limit),
+      borderColor: '#ef444488',
+      borderWidth: 1.5,
+      borderDash: [4,4],
+      pointRadius: 0,
+      fill: false,
+      label: `Giới hạn $${limit.toFixed(2)}/d`,
+    });
 
-    async function loadHistory() {
-      const data = await fetch('/api/history?days=30').then(r => r.json());
-      const days = data.days || [];
-
-      // Daily chart
-      const labels = days.map(d => fmtDate(d.date));
-      const costs = days.map(d => d.cost ?? 0);
-      const ctx = document.getElementById('dailyChart').getContext('2d');
-      if (dailyChart) dailyChart.destroy();
-      dailyChart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels,
-          datasets: [{
-            data: costs,
-            backgroundColor: costs.map(c => c > 3 ? '#ef4444' : c > 1.5 ? '#f59e0b' : '#3b82f6'),
-            borderRadius: 4,
-            borderSkipped: false,
-          }],
+    dailyChart = new Chart(ctx, {
+      data: { labels, datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: !!limit, labels: { color:'#6b7280', font:{size:10}, boxWidth:20 } },
+          tooltip: { callbacks: { label: c => '$'+Number(c.raw).toFixed(4) } },
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: { callbacks: { label: ctx => '$' + Number(ctx.raw).toFixed(4) } },
-          },
-          scales: {
-            x: {
-              grid: { color: '#111827' },
-              ticks: { color: '#6b7280', font: { size: 10 }, maxRotation: 0 },
-            },
-            y: {
-              grid: { color: '#111827' },
-              ticks: { color: '#6b7280', font: { size: 10 }, callback: v => '$' + v },
-              beginAtZero: true,
-            },
-          },
+        scales: {
+          x: { grid:{color:'#111827'}, ticks:{color:'#6b7280',font:{size:10},maxRotation:0} },
+          y: { grid:{color:'#111827'}, ticks:{color:'#6b7280',font:{size:10},callback:v=>'$'+v}, beginAtZero:true },
         },
-      });
+      },
+    });
+  }
 
-      // History table – current month, newest first
-      const today = new Date().toISOString().slice(0, 10);
-      const currentMonth = today.slice(0, 7);
-      const monthDays = days.filter(d => d.date.startsWith(currentMonth)).reverse();
-      const tbody = document.getElementById('historyBody');
-      tbody.innerHTML = '';
-      for (const day of monthDays) {
-        const isToday = day.date === today;
-        const tr = document.createElement('tr');
-        tr.className = isToday ? 'text-sky-400' : '';
-        const topModel = shortModel(day.topModels?.[0]?.model);
-        tr.innerHTML = `
-          <td class="py-1.5 font-mono text-xs">${fmtDate(day.date)}${isToday ? ' <span class="opacity-60">*</span>' : ''}</td>
-          <td class="text-right py-1.5 text-gray-300">${day.requestCount ?? 'N/A'}</td>
-          <td class="text-right py-1.5 font-mono">${day.cost != null ? '$' + day.cost.toFixed(4) : 'N/A'}</td>
-          <td class="text-right py-1.5 text-gray-400 text-xs hidden sm:table-cell">${topModel}</td>
-        `;
-        tbody.appendChild(tr);
-      }
+  async function loadModels() {
+    const data   = await fetch('/api/models').then(r=>r.json());
+    const models = data.models || [];
+    const ctx    = document.getElementById('modelsChart').getContext('2d');
+    if (modelsChart) modelsChart.destroy();
+    if (!models.length) return;
+
+    const colors = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444'];
+    modelsChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: models.map(m=>shortModel(m.model)),
+        datasets: [{ data: models.map(m=>m.cost), backgroundColor: colors, borderWidth:2, borderColor:'#1f2937', hoverOffset:6 }],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position:'bottom', labels:{color:'#9ca3af',font:{size:10},boxWidth:10,padding:8} },
+          tooltip: { callbacks: { label: c => ` $${Number(c.raw).toFixed(3)} (${c.label})` } },
+        },
+      },
+    });
+  }
+
+  function renderHistoryTable() {
+    const today = new Date().toISOString().slice(0,10);
+    const cm    = today.slice(0,7);
+    const rows  = allHistory.filter(d=>d.date.startsWith(cm)).reverse();
+    const tbody = document.getElementById('historyBody');
+    tbody.innerHTML = '';
+    for (const day of rows) {
+      const isToday = day.date===today;
+      const tr = document.createElement('tr');
+      tr.className = isToday ? 'text-sky-400' : '';
+      tr.innerHTML = `
+        <td class="py-1.5 font-mono text-xs">${fmtD(day.date)}${isToday?' <span class="opacity-60">*</span>':''}</td>
+        <td class="text-right py-1.5 text-gray-300">${day.requestCount??'N/A'}</td>
+        <td class="text-right py-1.5 font-mono">${day.cost!=null?'$'+day.cost.toFixed(4):'N/A'}</td>
+        <td class="text-right py-1.5 text-gray-400 text-xs hidden sm:table-cell">${shortModel(day.topModels?.[0]?.model)}</td>
+      `;
+      tbody.appendChild(tr);
+    }
+  }
+
+  function renderMonthComparison() {
+    const today = new Date().toISOString().slice(0,10);
+    const cm    = today.slice(0,7);
+    const lm    = getLastMonth();
+
+    function renderCard(id, days, label) {
+      const s = monthStats(days);
+      const el = document.getElementById(id);
+      const diff = id==='lastMonthStats' ? null : (() => {
+        const ls = monthStats(allHistory.filter(d=>d.date.startsWith(lm)));
+        if (!ls.total) return null;
+        const pct = ((s.total - ls.total)/ls.total*100).toFixed(0);
+        const up = s.total > ls.total;
+        return `<span class="${up?'text-red-400':'text-emerald-400'}">${up?'↑':'↓'} ${Math.abs(Number(pct))}%</span>`;
+      })();
+
+      el.innerHTML = `
+        <div class="flex justify-between items-baseline">
+          <span class="text-2xl font-bold text-white">${fmt(s.total)}</span>
+          ${diff||''}
+        </div>
+        <p class="text-xs text-gray-400 mt-1">${s.days} ngày · $${s.avg.toFixed(4)}/ngày TB</p>
+        ${s.requests!==null ? `<p class="text-xs text-gray-500">${s.requests.toLocaleString()} requests</p>` : ''}
+      `;
     }
 
-    async function loadModels() {
-      const data = await fetch('/api/models').then(r => r.json());
-      const models = data.models || [];
-      const container = document.getElementById('modelsList');
-      if (models.length === 0) {
-        container.innerHTML = '<p class="text-gray-500 text-sm">Chưa có dữ liệu</p>';
-        return;
-      }
-      const maxCost = Math.max(...models.map(m => m.cost));
-      const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444'];
-      container.innerHTML = models.map((m, i) => {
-        const pct = (m.cost / maxCost * 100).toFixed(0);
-        return `
-          <div>
-            <div class="flex justify-between text-xs mb-1">
-              <span class="text-gray-300 truncate mr-2">${i + 1}. ${shortModel(m.model)}</span>
-              <span class="text-gray-400 shrink-0">$${m.cost.toFixed(3)}</span>
+    renderCard('thisMonthStats',  allHistory.filter(d=>d.date.startsWith(cm)), cm);
+    renderCard('lastMonthStats',  allHistory.filter(d=>d.date.startsWith(lm)), lm);
+  }
+
+  async function loadAlerts() {
+    const data = await fetch('/api/alerts').then(r=>r.json());
+    const alerts = data.alerts || [];
+    const el = document.getElementById('alertsContainer');
+    if (!alerts.length) {
+      el.innerHTML = '<p class="text-gray-600 text-sm py-1">Chưa có alert nào được ghi nhận.</p>';
+      return;
+    }
+    const icons = {
+      low_balance:'💰', topup:'💳', topup_limit:'🚨',
+      hourly_spike:'⚡️', per_check_spike:'⚡️',
+      daily_budget:'⚠️', anomaly:'🔴',
+    };
+    el.innerHTML = alerts.slice(0,15).map(a => {
+      const icon  = icons[a.type] ?? (a.type.startsWith('monthly')?'📊':'🔔');
+      const time  = new Date(a.time).toLocaleString('vi-VN',{timeZone:'UTC',hour12:false})+' UTC';
+      const label = a.type.startsWith('monthly') ? `Budget ${a.type.split('_')[1]}%` :
+                    a.type==='low_balance'   ? 'Low Balance' :
+                    a.type==='topup'         ? 'Auto Topup' :
+                    a.type==='topup_limit'   ? 'Topup Limit' :
+                    a.type==='hourly_spike'  ? 'Hourly Spike' :
+                    a.type==='per_check_spike'? 'Spike' :
+                    a.type==='daily_budget'  ? 'Daily Budget' :
+                    a.type==='anomaly'       ? 'Anomaly' : a.type;
+      return `
+        <div class="flex items-start gap-3 py-2 border-b border-gray-700/50 last:border-0">
+          <span class="text-sm flex-shrink-0 mt-0.5">${icon}</span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-medium text-gray-300">${label}</span>
+              <span class="text-xs text-gray-500">${time}</span>
             </div>
-            <div class="h-1.5 bg-gray-700 rounded-full overflow-hidden">
-              <div class="h-full rounded-full" style="width:${pct}%; background:${colors[i] ?? '#6b7280'};"></div>
-            </div>
-            <p class="text-gray-500 text-xs mt-0.5">${m.requests.toLocaleString()} requests</p>
+            <p class="text-xs text-gray-400 mt-0.5">${a.description}</p>
           </div>
-        `;
-      }).join('');
-    }
+        </div>`;
+    }).join('');
+  }
 
-    async function loadAll() {
-      try {
-        await Promise.all([loadStatus(), loadHistory(), loadModels()]);
-      } catch (err) {
-        console.error('Failed to load:', err);
-      }
+  // ── Countdown ──────────────────────────────────────────
+  function startCountdown(lastISO, intervalMin) {
+    if (countdownTimer) clearInterval(countdownTimer);
+    function tick() {
+      const next = new Date(lastISO).getTime() + intervalMin*60000;
+      const diff = Math.max(0, Math.floor((next-Date.now())/1000));
+      const m = Math.floor(diff/60), s = diff%60;
+      const el = document.getElementById('nextCheck');
+      if (el) el.textContent = `Next: ${m}:${s.toString().padStart(2,'0')}`;
+      if (diff===0) loadAll();
     }
+    tick();
+    countdownTimer = setInterval(tick, 1000);
+  }
 
-    loadAll();
-    setInterval(loadAll, 60000);
-  </script>
+  // ── Date range ─────────────────────────────────────────
+  function setRange(range) {
+    currentRange = range;
+    document.querySelectorAll('[data-range]').forEach(b => {
+      b.classList.toggle('active', b.dataset.range===range);
+    });
+    renderChart();
+  }
+
+  // ── Tooltip ────────────────────────────────────────────
+  const tipBox = document.getElementById('tooltip-box');
+  function posTip(e) {
+    const W=window.innerWidth, tw=220, th=tipBox.offsetHeight;
+    let x=e.clientX-tw/2, y=e.clientY-th-12;
+    if(x<8)x=8; if(x+tw>W-8)x=W-tw-8; if(y<8)y=e.clientY+20;
+    tipBox.style.left=x+'px'; tipBox.style.top=y+'px';
+  }
+  document.querySelectorAll('.ti').forEach(el=>{
+    el.addEventListener('mouseenter',e=>{tipBox.textContent=el.getAttribute('data-t');tipBox.style.display='block';posTip(e);});
+    el.addEventListener('mousemove',posTip);
+    el.addEventListener('mouseleave',()=>{tipBox.style.display='none';});
+  });
+
+  // ── Init ───────────────────────────────────────────────
+  async function loadAll() {
+    try { await Promise.all([loadStatus(), loadHistory(), loadModels(), loadAlerts()]); }
+    catch(e) { console.error(e); }
+  }
+  loadAll();
+  setInterval(loadAll, 60000);
+</script>
 </body>
 </html>

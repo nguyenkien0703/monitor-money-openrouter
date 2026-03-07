@@ -1,6 +1,5 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import * as path from 'path';
-import * as crypto from 'crypto';
 import { AppState } from './persistence';
 import { CreditBalance } from './openrouter';
 import { Config } from '../config';
@@ -13,66 +12,17 @@ export interface DashboardData {
 
 export class WebService {
   private app = express();
-  private sessionToken = crypto.randomBytes(32).toString('hex');
 
   constructor(
     private port: number,
-    private password: string,
     private getData: () => DashboardData,
   ) {
-    this.setupMiddleware();
     this.setupRoutes();
   }
 
-  private parseCookies(header = ''): Record<string, string> {
-    const result: Record<string, string> = {};
-    for (const part of header.split(';')) {
-      const idx = part.indexOf('=');
-      if (idx < 0) continue;
-      const key = part.slice(0, idx).trim();
-      const val = part.slice(idx + 1).trim();
-      try { result[key] = decodeURIComponent(val); } catch { result[key] = val; }
-    }
-    return result;
-  }
-
-  private setupMiddleware(): void {
-    this.app.use(express.urlencoded({ extended: false }));
-
-    if (this.password) {
-      // Login page
-      this.app.get('/login', (req: Request, res: Response) => {
-        res.sendFile(path.join(process.cwd(), 'public', 'login.html'));
-      });
-
-      // Login submit
-      this.app.post('/login', (req: Request, res: Response) => {
-        if (req.body.password === this.password) {
-          res.setHeader('Set-Cookie', `sid=${this.sessionToken}; HttpOnly; Path=/; Max-Age=604800`);
-          res.redirect('/');
-        } else {
-          res.redirect('/login?error=1');
-        }
-      });
-
-      // Logout
-      this.app.get('/logout', (req: Request, res: Response) => {
-        res.setHeader('Set-Cookie', 'sid=; HttpOnly; Path=/; Max-Age=0');
-        res.redirect('/login');
-      });
-
-      // Auth guard for all other routes
-      this.app.use((req: Request, res: Response, next: NextFunction) => {
-        const cookies = this.parseCookies(req.headers.cookie);
-        if (cookies.sid === this.sessionToken) return next();
-        res.redirect('/login');
-      });
-    }
-
-    this.app.use(express.static(path.join(process.cwd(), 'public')));
-  }
-
   private setupRoutes(): void {
+    this.app.use(express.static(path.join(process.cwd(), 'public')));
+
     this.app.get('/api/status', (req: Request, res: Response) => {
       const { state, lastBalance, config } = this.getData();
       const now = new Date();
@@ -107,10 +57,9 @@ export class WebService {
             : daysInMonth - dayOfMonth,
           percentage: monthlySpend / config.monthlyBudget * 100,
         },
-        topup: {
-          count: state.monthlyTopupCount,
-          limit: config.monthlyTopupLimit,
-        },
+        topup: { count: state.monthlyTopupCount, limit: config.monthlyTopupLimit },
+        dailyBudgetLimit: config.dailyBudgetLimit,
+        checkIntervalMinutes: config.checkIntervalMinutes,
         lastUpdated: state.lastCheckTime,
       });
     });
@@ -119,6 +68,7 @@ export class WebService {
       const { state } = this.getData();
       const today = new Date().toISOString().slice(0, 10);
       const daysParam = Number(req.query.days);
+      const monthParam = req.query.month ? String(req.query.month) : null;
 
       let dates: string[];
       if (daysParam > 0) {
@@ -127,6 +77,10 @@ export class WebService {
           d.setUTCDate(d.getUTCDate() - i);
           return d.toISOString().slice(0, 10);
         }).reverse();
+      } else if (monthParam) {
+        dates = Object.keys(state.dailyHistory ?? {})
+          .filter(d => d.startsWith(monthParam))
+          .sort();
       } else {
         const currentMonth = today.slice(0, 7);
         dates = Object.keys(state.dailyHistory ?? {})
@@ -171,6 +125,11 @@ export class WebService {
         .slice(0, 5);
 
       res.json({ models });
+    });
+
+    this.app.get('/api/alerts', (req: Request, res: Response) => {
+      const { state } = this.getData();
+      res.json({ alerts: state.recentAlerts ?? [] });
     });
   }
 

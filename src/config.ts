@@ -18,7 +18,6 @@ export interface Config {
   anomalyMultiplier: number;    // ANOMALY_MULTIPLIER, alert if today > avg*multiplier, default 2
   perCheckSpikeThreshold: number; // PER_CHECK_SPIKE_THRESHOLD, alert if single check delta > this, default 1
   webPort: number;                // WEB_PORT, default 3000
-  webPassword: string;            // WEB_PASSWORD, optional
 }
 
 function getEnvVar(name: string): string {
@@ -58,6 +57,5 @@ export function loadConfig(): Config {
     anomalyMultiplier: getEnvVarAsNumber('ANOMALY_MULTIPLIER', 2),
     perCheckSpikeThreshold: getEnvVarAsNumber('PER_CHECK_SPIKE_THRESHOLD', 1),
     webPort: getEnvVarAsNumber('WEB_PORT', 3000),
-    webPassword: process.env['WEB_PASSWORD'] || '',
   };
 }

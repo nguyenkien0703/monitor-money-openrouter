@@ -2,7 +2,7 @@ import * as cron from 'node-cron';
 import { loadConfig } from './config';
 import { OpenRouterService, CreditBalance } from './services/openrouter';
 import { TelegramService } from './services/telegram';
-import { PersistenceService, AppState, DayRecord } from './services/persistence';
+import { PersistenceService, AppState, DayRecord, AlertEntry } from './services/persistence';
 import { WebService } from './services/web';
 
 class CreditMonitor {
@@ -26,9 +26,15 @@ class CreditMonitor {
     this.state = this.persistence.loadState();
     this.web = new WebService(
       this.config.webPort,
-      this.config.webPassword,
       () => ({ state: this.state, lastBalance: this.lastBalance, config: this.config }),
     );
+  }
+
+  private logAlert(type: string, description: string): void {
+    if (!this.state.recentAlerts) this.state.recentAlerts = [];
+    this.state.recentAlerts.unshift({ type, description, time: new Date().toISOString() });
+    if (this.state.recentAlerts.length > 30) this.state.recentAlerts.length = 30;
+    this.persistence.saveState(this.state);
   }
 
   private getCurrentMonth(): string {
@@ -115,6 +121,7 @@ class CreditMonitor {
       this.persistence.saveState(this.state);
       console.log(`🚨 Anomaly: today=$${todayCost.toFixed(4)}, avg7d=$${avg.toFixed(4)}`);
       await this.telegram.sendAnomalyAlert(todayCost, avg, this.config.anomalyMultiplier);
+      this.logAlert('anomaly', `Hôm nay $${todayCost.toFixed(4)} vs TB 7 ngày $${avg.toFixed(4)}`);
     }
   }
 
@@ -316,6 +323,7 @@ class CreditMonitor {
         this.state.perCheckSpikeAlertTime = new Date(now).toISOString();
         console.log(`⚡️ Per-check spike: +$${checkDelta.toFixed(4)} since last check`);
         await this.telegram.sendPerCheckSpikeAlert(checkDelta, this.config.checkIntervalMinutes, this.config.perCheckSpikeThreshold);
+        this.logAlert('per_check_spike', `+$${checkDelta.toFixed(4)} in ${this.config.checkIntervalMinutes} min`);
       }
     }
 
@@ -327,6 +335,7 @@ class CreditMonitor {
         if (hourlyRate > this.config.hourlySpikeThreshold) {
           console.log(`🚨 Hourly spike: $${hourlyRate.toFixed(3)}/hr (threshold: $${this.config.hourlySpikeThreshold}/hr)`);
           await this.telegram.sendHourlySpikeAlert(hourlyRate, this.config.hourlySpikeThreshold);
+          this.logAlert('hourly_spike', `$${hourlyRate.toFixed(3)}/hr > threshold $${this.config.hourlySpikeThreshold}/hr`);
         }
       }
     }
@@ -340,6 +349,7 @@ class CreditMonitor {
       this.state.dailyBudgetAlertDate = today;
       console.log(`⚠️  Daily budget exceeded: $${todayCost.toFixed(4)} > $${this.config.dailyBudgetLimit.toFixed(4)}`);
       await this.telegram.sendDailyBudgetAlert(todayCost, this.config.dailyBudgetLimit);
+      this.logAlert('daily_budget', `$${todayCost.toFixed(4)} vượt giới hạn $${this.config.dailyBudgetLimit.toFixed(4)}/ngày`);
     }
 
     // 3. Monthly budget milestone alerts
@@ -358,6 +368,7 @@ class CreditMonitor {
         this.state.monthlyBudgetAlerts.push(key);
         console.log(`🔴 Monthly budget ${threshold}%: $${monthlySpend.toFixed(2)} / $${this.config.monthlyBudget}`);
         await this.telegram.sendMonthlyBudgetAlert(threshold, monthlySpend, this.config.monthlyBudget, projected, daysLeft);
+        this.logAlert(`monthly_${threshold}`, `$${monthlySpend.toFixed(2)} / $${this.config.monthlyBudget} (${threshold}% budget)`);
       }
     }
 
@@ -474,10 +485,12 @@ class CreditMonitor {
       console.log(`💰 Auto topup detected! Amount: $${delta.toFixed(2)}, Count this month: ${count}/${limit}`);
 
       await this.telegram.sendTopupAlert(delta, count, limit);
+      this.logAlert('topup', `+$${delta.toFixed(2)} tự động nạp (${count}/${limit} lần tháng này)`);
 
       if (count > limit) {
         const totalAddedThisMonth = delta * count;
         await this.telegram.sendTopupOverBudgetAlert(count, totalAddedThisMonth, limit);
+        this.logAlert('topup_limit', `${count} lần topup vượt giới hạn ${limit} lần/tháng`);
       }
     } else if (delta < -0.001) {
       // Unexpected decrease – log warning, do not update baseline
@@ -530,6 +543,7 @@ class CreditMonitor {
             balance.remainingBalance,
             this.config.balanceThreshold
           );
+          this.logAlert('low_balance', `Balance $${balance.remainingBalance.toFixed(2)} dưới ngưỡng $${this.config.balanceThreshold}`);
           this.lastAlertTime = now;
           console.log('📤 Alert sent to Telegram');
         } else {

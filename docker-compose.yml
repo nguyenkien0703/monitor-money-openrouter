@@ -22,7 +22,6 @@ services:
       - ANOMALY_MULTIPLIER=${ANOMALY_MULTIPLIER:-2}
       - PER_CHECK_SPIKE_THRESHOLD=${PER_CHECK_SPIKE_THRESHOLD:-1}
       - WEB_PORT=3000
-      - WEB_PASSWORD=${WEB_PASSWORD:-}
       - STATE_FILE_PATH=/app/data/state.json
     ports:
       - "${WEB_PORT:-3000}:3000"

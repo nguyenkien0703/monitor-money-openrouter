@@ -1,6 +1,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
+export interface AlertEntry {
+  type: string;
+  description: string;
+  time: string; // ISO string
+}
+
 export interface ModelStat {
   model: string;
   cost: number;
@@ -24,9 +30,10 @@ export interface AppState {
   lastCheckTime: string;         // ISO string
   monthlyBudgetAlerts: string[]; // e.g. ["2026-03_80", "2026-03_90"]
   dailyBudgetAlertDate: string;  // "YYYY-MM-DD" of last daily alert
-  anomalyAlertDate: string;      // "YYYY-MM-DD" of last anomaly alert
-  monthlyRecapSent: string;      // "YYYY-MM" of last monthly recap sent
-  perCheckSpikeAlertTime: string; // ISO string of last per-check spike alert
+  anomalyAlertDate: string;
+  monthlyRecapSent: string;
+  perCheckSpikeAlertTime: string;
+  recentAlerts: AlertEntry[];    // last 30 alerts sent
 }
 
 const DEFAULT_STATE: AppState = {
@@ -43,6 +50,7 @@ const DEFAULT_STATE: AppState = {
   anomalyAlertDate: '',
   monthlyRecapSent: '',
   perCheckSpikeAlertTime: '',
+  recentAlerts: [],
 };
 
 export class PersistenceService {
