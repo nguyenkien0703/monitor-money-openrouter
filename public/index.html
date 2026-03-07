@@ -9,6 +9,46 @@
   <style>
     body { font-family: system-ui, -apple-system, sans-serif; }
     .card { background: #1f2937; border-radius: 0.75rem; padding: 1rem; }
+
+    /* Tooltip */
+    .ti {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      background: #374151;
+      color: #9ca3af;
+      font-size: 9px; font-style: italic; font-weight: bold;
+      cursor: help;
+      margin-left: 4px;
+      flex-shrink: 0;
+      vertical-align: middle;
+    }
+    .ti::after {
+      content: attr(data-t);
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: #111827;
+      border: 1px solid #374151;
+      color: #d1d5db;
+      font-size: 11px; font-style: normal; font-weight: normal;
+      line-height: 1.5;
+      padding: 8px 12px;
+      border-radius: 8px;
+      width: 220px;
+      white-space: normal;
+      z-index: 1000;
+      pointer-events: none;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.6);
+    }
+    .ti:hover::after { display: block; }
+    .ti-left::after  { left: 0;   transform: none; }
+    .ti-right::after { left: auto; right: 0; transform: none; }
   </style>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen p-4 md:p-6">
@@ -32,21 +72,29 @@
     <!-- Stat cards -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
       <div class="card">
-        <p class="text-xs text-gray-400 mb-1">Balance</p>
+        <p class="text-xs text-gray-400 mb-1 flex items-center">Balance
+          <span class="ti ti-left" data-t="Số dư còn lại trong tài khoản OpenRouter. Công thức: Tổng credits đã nạp − Tổng đã sử dụng từ trước đến nay.">i</span>
+        </p>
         <p id="statBalance" class="text-2xl font-bold text-emerald-400">–</p>
       </div>
       <div class="card">
-        <p class="text-xs text-gray-400 mb-1">Hôm nay</p>
+        <p class="text-xs text-gray-400 mb-1 flex items-center">Hôm nay
+          <span class="ti" data-t="Chi phí API từ 00:00 UTC đến lần kiểm tra gần nhất. Cập nhật theo chu kỳ check (mặc định 10 phút). Requests hiện N/A vì API chỉ trả data ngày đã hoàn thành.">i</span>
+        </p>
         <p id="statToday" class="text-2xl font-bold text-sky-400">–</p>
         <p id="statTodayReq" class="text-xs text-gray-500 mt-0.5">– requests</p>
       </div>
       <div class="card">
-        <p class="text-xs text-gray-400 mb-1">Tháng này</p>
+        <p class="text-xs text-gray-400 mb-1 flex items-center">Tháng này
+          <span class="ti" data-t="Phần trăm ngân sách tháng đã dùng. Tính tổng từ ngày 1 đến hôm nay chia cho ngân sách tháng đã cấu hình (MONTHLY_BUDGET).">i</span>
+        </p>
         <p id="statMonthly" class="text-2xl font-bold text-amber-400">–</p>
         <p id="statMonthlyDetail" class="text-xs text-gray-500 mt-0.5">–</p>
       </div>
       <div class="card">
-        <p class="text-xs text-gray-400 mb-1">Burn rate</p>
+        <p class="text-xs text-gray-400 mb-1 flex items-center">Burn rate
+          <span class="ti ti-right" data-t="Tốc độ tiêu tiền trung bình mỗi ngày trong tháng này. Công thức: Tổng đã dùng ÷ Số ngày đã qua. Dùng để dự báo chi phí cuối tháng.">i</span>
+        </p>
         <p id="statBurn" class="text-2xl font-bold text-orange-400">–</p>
         <p id="statProjected" class="text-xs text-gray-500 mt-0.5">–</p>
       </div>
@@ -55,28 +103,38 @@
     <!-- Budget progress -->
     <div class="card mb-4">
       <div class="flex justify-between items-center mb-2">
-        <span class="text-sm font-medium">Ngân sách tháng này</span>
+        <span class="text-sm font-medium flex items-center">Ngân sách tháng này
+          <span class="ti ti-left" data-t="Thanh tiến trình sử dụng ngân sách. Màu sắc: Xanh = dưới 80% · Vàng = 80–90% · Đỏ = trên 90%. Ngân sách cấu hình qua biến MONTHLY_BUDGET.">i</span>
+        </span>
         <span id="budgetLabel" class="text-sm font-mono text-gray-300">–</span>
       </div>
       <div class="relative h-3 bg-gray-700 rounded-full overflow-hidden mb-2">
         <div id="budgetBar" class="h-full rounded-full transition-all duration-700 bg-emerald-500" style="width: 0%;"></div>
       </div>
       <div class="flex justify-between text-xs text-gray-400">
-        <span id="budgetProjected">–</span>
-        <span id="budgetDaysLeft">–</span>
+        <span id="budgetProjected" class="flex items-center gap-1">–
+          <span class="ti" data-t="Ước tính tổng chi phí đến cuối tháng nếu giữ nguyên burn rate hiện tại. Nếu con số này vượt budget → sẽ nhận cảnh báo.">i</span>
+        </span>
+        <span id="budgetDaysLeft" class="flex items-center gap-1">
+          <span class="ti ti-right" data-t="Số ngày còn lại trước khi hết budget với tốc độ tiêu hiện tại. Công thức: (Budget − Đã dùng) ÷ Burn rate/ngày.">i</span>–
+        </span>
       </div>
     </div>
 
     <!-- Charts row -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
       <div class="card md:col-span-2">
-        <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3">Chi phí theo ngày (30 ngày)</h3>
+        <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3 flex items-center">Chi phí theo ngày (30 ngày)
+          <span class="ti ti-left" data-t="Chi phí API mỗi ngày trong 30 ngày qua. Màu sắc: Xanh &lt; $1.5 · Vàng $1.5–3 · Đỏ &gt; $3. Hover vào cột để xem số chính xác.">i</span>
+        </h3>
         <div style="position: relative; height: 200px;">
           <canvas id="dailyChart"></canvas>
         </div>
       </div>
       <div class="card">
-        <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3">Top Models – 7 ngày</h3>
+        <h3 class="text-xs text-gray-400 uppercase tracking-wide mb-3 flex items-center">Top Models – 7 ngày
+          <span class="ti ti-right" data-t="Top 5 models tốn chi phí nhiều nhất trong 7 ngày qua. Dữ liệu tổng hợp từ top 3 models của mỗi ngày — cần Management Key để có data này.">i</span>
+        </h3>
         <div id="modelsList" class="space-y-3"></div>
       </div>
     </div>
@@ -89,9 +147,21 @@
           <thead>
             <tr class="text-xs text-gray-400 border-b border-gray-700">
               <th class="text-left pb-2 font-medium">Ngày</th>
-              <th class="text-right pb-2 font-medium">Requests</th>
-              <th class="text-right pb-2 font-medium">Chi phí</th>
-              <th class="text-right pb-2 font-medium hidden sm:table-cell">Top Model</th>
+              <th class="text-right pb-2 font-medium">
+                <span class="inline-flex items-center justify-end gap-1">Requests
+                  <span class="ti ti-right" data-t="Số lượng API request trong ngày. Lấy từ OpenRouter Management Key API — chỉ có data của ngày đã hoàn thành (UTC). Hôm nay luôn N/A.">i</span>
+                </span>
+              </th>
+              <th class="text-right pb-2 font-medium">
+                <span class="inline-flex items-center justify-end gap-1">Chi phí
+                  <span class="ti ti-right" data-t="Chi phí API trong ngày tính bằng USD. Ngày đã qua: lấy từ API chính xác. Hôm nay (*): tính bằng delta total_usage nên cập nhật mỗi 10 phút.">i</span>
+                </span>
+              </th>
+              <th class="text-right pb-2 font-medium hidden sm:table-cell">
+                <span class="inline-flex items-center justify-end gap-1">Top Model
+                  <span class="ti ti-right" data-t="Model tốn chi phí nhiều nhất trong ngày đó.">i</span>
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody id="historyBody" class="divide-y divide-gray-700/40"></tbody>
