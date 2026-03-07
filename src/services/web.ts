@@ -1,5 +1,6 @@
-import express, { Request, Response } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import { AppState } from './persistence';
 import { CreditBalance } from './openrouter';
 import { Config } from '../config';
@@ -12,6 +13,7 @@ export interface DashboardData {
 
 export class WebService {
   private app = express();
+  private sessionToken = crypto.randomBytes(32).toString('hex');
 
   constructor(
     private port: number,
@@ -22,24 +24,51 @@ export class WebService {
     this.setupRoutes();
   }
 
+  private parseCookies(header = ''): Record<string, string> {
+    const result: Record<string, string> = {};
+    for (const part of header.split(';')) {
+      const idx = part.indexOf('=');
+      if (idx < 0) continue;
+      const key = part.slice(0, idx).trim();
+      const val = part.slice(idx + 1).trim();
+      try { result[key] = decodeURIComponent(val); } catch { result[key] = val; }
+    }
+    return result;
+  }
+
   private setupMiddleware(): void {
+    this.app.use(express.urlencoded({ extended: false }));
+
     if (this.password) {
-      this.app.use((req, res, next) => {
-        const auth = req.headers.authorization;
-        if (!auth?.startsWith('Basic ')) {
-          res.setHeader('WWW-Authenticate', 'Basic realm="OpenRouter Monitor"');
-          return res.status(401).send('Unauthorized');
+      // Login page
+      this.app.get('/login', (req: Request, res: Response) => {
+        res.sendFile(path.join(process.cwd(), 'public', 'login.html'));
+      });
+
+      // Login submit
+      this.app.post('/login', (req: Request, res: Response) => {
+        if (req.body.password === this.password) {
+          res.setHeader('Set-Cookie', `sid=${this.sessionToken}; HttpOnly; Path=/; Max-Age=604800`);
+          res.redirect('/');
+        } else {
+          res.redirect('/login?error=1');
         }
-        const credentials = Buffer.from(auth.slice(6), 'base64').toString();
-        const colonIdx = credentials.indexOf(':');
-        const pass = credentials.slice(colonIdx + 1);
-        if (pass !== this.password) {
-          res.setHeader('WWW-Authenticate', 'Basic realm="OpenRouter Monitor"');
-          return res.status(401).send('Unauthorized');
-        }
-        next();
+      });
+
+      // Logout
+      this.app.get('/logout', (req: Request, res: Response) => {
+        res.setHeader('Set-Cookie', 'sid=; HttpOnly; Path=/; Max-Age=0');
+        res.redirect('/login');
+      });
+
+      // Auth guard for all other routes
+      this.app.use((req: Request, res: Response, next: NextFunction) => {
+        const cookies = this.parseCookies(req.headers.cookie);
+        if (cookies.sid === this.sessionToken) return next();
+        res.redirect('/login');
       });
     }
+
     this.app.use(express.static(path.join(process.cwd(), 'public')));
   }
 

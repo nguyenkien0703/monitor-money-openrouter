@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login – OpenRouter Monitor</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen flex items-center justify-center p-4">
+  <div class="w-full max-w-sm">
+
+    <div class="text-center mb-8">
+      <div class="text-4xl mb-3">🤖</div>
+      <h1 class="text-xl font-semibold">OpenRouter Monitor</h1>
+      <p class="text-gray-500 text-sm mt-1">Nhập mật khẩu để tiếp tục</p>
+    </div>
+
+    <div class="bg-gray-800 rounded-2xl p-6 shadow-xl">
+      <div id="errorMsg" class="hidden mb-4 text-sm text-red-400 bg-red-950/60 border border-red-800/50 rounded-lg px-4 py-2.5">
+        ❌ Mật khẩu không đúng. Vui lòng thử lại.
+      </div>
+
+      <form method="POST" action="/login" id="loginForm">
+        <div class="mb-5">
+          <label class="text-xs text-gray-400 block mb-1.5 font-medium">Mật khẩu</label>
+          <input
+            type="password"
+            name="password"
+            id="passwordInput"
+            autofocus
+            autocomplete="current-password"
+            class="w-full bg-gray-700 text-white rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-sky-500 border border-gray-600 focus:border-sky-500 transition-colors placeholder-gray-500"
+            placeholder="Nhập mật khẩu..."
+          />
+        </div>
+
+        <button
+          type="submit"
+          class="w-full bg-sky-600 hover:bg-sky-500 active:bg-sky-700 text-white font-medium rounded-xl py-3 text-sm transition-colors"
+        >
+          Đăng nhập
+        </button>
+      </form>
+    </div>
+
+    <p class="text-center text-xs text-gray-600 mt-6">
+      Session được lưu trong 7 ngày
+    </p>
+  </div>
+
+  <script>
+    if (new URLSearchParams(location.search).get('error')) {
+      document.getElementById('errorMsg').classList.remove('hidden');
+      document.getElementById('passwordInput').value = '';
+      document.getElementById('passwordInput').focus();
+    }
+  </script>
+</body>
+</html>
