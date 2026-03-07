@@ -1,8 +1,9 @@
 import * as cron from 'node-cron';
 import { loadConfig } from './config';
-import { OpenRouterService } from './services/openrouter';
+import { OpenRouterService, CreditBalance } from './services/openrouter';
 import { TelegramService } from './services/telegram';
 import { PersistenceService, AppState, DayRecord } from './services/persistence';
+import { WebService } from './services/web';
 
 class CreditMonitor {
   private config = loadConfig();
@@ -12,6 +13,8 @@ class CreditMonitor {
   private state: AppState;
   private lastAlertTime: number = 0;
   private alertCooldownMs = 3600000; // 1 hour cooldown between alerts
+  private lastBalance: CreditBalance | null = null;
+  private web: WebService;
 
   constructor() {
     this.openRouter = new OpenRouterService(this.config.openRouterApiKey);
@@ -21,6 +24,11 @@ class CreditMonitor {
     );
     this.persistence = new PersistenceService(this.config.statePath);
     this.state = this.persistence.loadState();
+    this.web = new WebService(
+      this.config.webPort,
+      this.config.webPassword,
+      () => ({ state: this.state, lastBalance: this.lastBalance, config: this.config }),
+    );
   }
 
   private getCurrentMonth(): string {
@@ -504,6 +512,7 @@ class CreditMonitor {
       console.log(`[${timestamp}] 🔍 Checking OpenRouter balance...`);
 
       const balance = await this.openRouter.getCreditBalance();
+      this.lastBalance = balance;
       console.log(this.openRouter.formatBalance(balance));
 
       await this.detectTopup(balance.totalCredits);
@@ -565,6 +574,9 @@ class CreditMonitor {
 
     // Start Telegram command polling
     this.startPolling();
+
+    // Start web dashboard
+    this.web.start();
 
     console.log(`⏰ Scheduled to run every ${this.config.checkIntervalMinutes} minutes`);
     console.log(`📊 Daily report scheduled at ${hour}:00 UTC`);
